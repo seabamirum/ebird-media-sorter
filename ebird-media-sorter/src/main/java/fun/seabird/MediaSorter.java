@@ -186,9 +186,7 @@ public abstract class MediaSorter
 		}
 		
 		if (hrsOffset != 0)
-			mediaTime = mediaTime.plusHours(hrsOffset);		
-		
-		System.out.println(fileName + ": " + mediaTime);
+			mediaTime = mediaTime.plusHours(hrsOffset);
 
 		String datePath = outputPath + File.separator + mediaTime.format(folderDtf);
 		
