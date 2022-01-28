@@ -1,7 +1,7 @@
 # ebird-media-sorter
 Program to sort photos, audio, and video on the file system by date and eBird checklistId
 
-Download the Java JRE if it's not already installed https://java.com/en/download/
+Download the most recent Java JRE (Version 17) if it's not already installed https://java.com/en/download/
 Download ebird-media-sorter.jar (under RELEASES tab)
 Open a command prompt
 Switch to the directory that has ebird-media-sorter.jar
