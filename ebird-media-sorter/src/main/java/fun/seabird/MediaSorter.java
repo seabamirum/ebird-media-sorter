@@ -44,11 +44,13 @@ public abstract class MediaSorter
 	
 	private static final RangeMap<LocalDateTime, String> rangeMap = TreeRangeMap.create();	
 	
-	private static final Map<String,SubStats> statsMap = new TreeMap<>();
+	private static final Map<String,SubStats> checklistStatsMap = new TreeMap<>();
 	
 	private static final Set<String> audioExtensions = ImmutableSet.of("wav","mp3","m4a");
 	private static final Set<String> videoExtensions = ImmutableSet.of("mov","m4v","mp4");
 	private static final Set<String> imageExtensions = ImmutableSet.of("jpg","jpeg");	
+	
+	private static final String OUTPUT_FOLDER_NAME = "ebird";
 	
 	private static void parseCsv(String csvPath) throws FileNotFoundException, IOException
 	{
@@ -83,8 +85,8 @@ public abstract class MediaSorter
 				
 				rangeMap.put(Range.closed(subBeginTime,subEndTime),subId);
 				
-				if (!statsMap.containsKey(subId))				
-					statsMap.put(subId,new SubStats(subBeginTime));				
+				if (!checklistStatsMap.containsKey(subId))				
+					checklistStatsMap.put(subId,new SubStats(subBeginTime));				
 				
 				int numUploaded = 0;
 				if (values.size() > 22)
@@ -93,7 +95,7 @@ public abstract class MediaSorter
 					if (assets != null)
 						numUploaded = 1+StringUtils.countMatches(assets,' ');
 					
-					statsMap.get(subId).incNumAssetsUploaded(numUploaded);
+					checklistStatsMap.get(subId).incNumAssetsUploaded(numUploaded);
 				}
 			}
 			System.out.println("DONE parsing!\nTraversing directory...");
@@ -102,7 +104,7 @@ public abstract class MediaSorter
 	
 	private static void checkMetadataAndMove(File f,String outputPath,Long hrsOffset,Set<String> subIds) throws IOException
 	{
-		if (f.isDirectory() || f.getPath().contains("ebird"))
+		if (f.isDirectory() || f.getPath().contains(OUTPUT_FOLDER_NAME))
 			return;
 		
 		String fileName = f.getName();
@@ -208,7 +210,7 @@ public abstract class MediaSorter
 			movedFile = new File(subIdPath + File.separator + f.getName());
 			
 			subIds.add(subId);
-			statsMap.get(subId).incNumAssetsLocal();
+			checklistStatsMap.get(subId).incNumAssetsLocal();
 		}
 		else
 			movedFile = new File(datePath + File.separator + f.getName());
@@ -227,27 +229,27 @@ public abstract class MediaSorter
 		
 		parseCsv(args[0]);
 		
-		String imagePath = args[1];
-		File imagePathFile = new File(imagePath);
+		String mediaPath = args[1];		
 		
-		String outputPath = imagePath + File.separator + "ebird";
+		//make output directory inside the provided media folder
+		String outputPath = mediaPath + File.separator + OUTPUT_FOLDER_NAME;
 		File outputDir = new File(outputPath);
 		if (!outputDir.exists())
 			outputDir.mkdir();			
 		
 		Set<String> subIds = new TreeSet<>();
 		Long hrsOffset= args.length == 3 ? Long.valueOf(args[2]) : 0l;
-		Iterable<File> traverser = Files.fileTraverser().depthFirstPreOrder(imagePathFile);
+		Iterable<File> traverser = Files.fileTraverser().depthFirstPreOrder(new File(mediaPath));
 		for (File f:traverser)
 			checkMetadataAndMove(f,outputPath,hrsOffset,subIds);
 		
 		if (!subIds.isEmpty())
 		{
-			FileWriter fw = new FileWriter(imagePath + File.separator + "checklistIndex_" + subIds.size() + ".csv");		
+			FileWriter fw = new FileWriter(mediaPath + File.separator + "checklistIndex_" + subIds.size() + ".csv");		
 			fw.write("Checklist Link,Date,Num Assets Uploaded,Num Assets Local\n");
 			for (String subId:subIds)
 			{
-				SubStats ss = statsMap.get(subId);
+				SubStats ss = checklistStatsMap.get(subId);
 				fw.write("https://ebird.org/checklist/" + subId + ",");
 				fw.write(ss.getDate() + ",");
 				fw.write(ss.getNumAssetsUploaded() + ",");
