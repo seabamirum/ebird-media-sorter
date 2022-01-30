@@ -48,7 +48,7 @@ public abstract class MediaSorter
 	
 	private static final Set<String> audioExtensions = ImmutableSet.of("wav","mp3","m4a");
 	private static final Set<String> videoExtensions = ImmutableSet.of("mov","m4v","mp4");
-	private static final Set<String> imageExtensions = ImmutableSet.of("jpg","jpeg");	
+	private static final Set<String> imageExtensions = ImmutableSet.of("jpg","jpeg","cr2");	
 	
 	private static final String OUTPUT_FOLDER_NAME = "ebird";
 	
@@ -256,7 +256,7 @@ public abstract class MediaSorter
 			fw.close();
 		}
 		
-		System.out.println("ALL DONE! Now upload your files to eBird...");
+		System.out.println("ALL DONE! Now upload your media to eBird...");
 		
 	} //END main
 }
