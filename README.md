@@ -1,5 +1,5 @@
 # ebird-media-sorter
-Program to sort photos, audio, and video on the file system by date and eBird checklistId. All media determined to be created on a given date will be put underneath a folder named with that date. If a checklistId match is found, sub-folders for each checklistId will be created. Generates an index file for all checklistId matches, so you can easily find and prioritize which lists to upload media for, and mark them done when completed.
+Program to sort photos, audio, and video on the file system by date and eBird checklistId. All media determined to be created on a given date will be put underneath a folder named with that date, e.g. '2022-01-29/'. If a checklistId match is found, sub-folders for each checklistId will be created, e.g. '2022-01-29/S2626262/'. When the process completes, it generates an index CSV file for all checklistId matches, so that you can easily find and prioritize which lists to upload media for, and mark them done when completed.
 
 (1) Download the most recent Java JRE (Version 17) if it's not already installed https://java.com/en/download/<br/>
 (2) Download the <a href="https://github.com/seabamirum/ebird-media-sorter/releases"> ebird-media-sorter-[version]</a> jar file (under RELEASES)<br/>
