@@ -52,16 +52,17 @@ public abstract class MediaSorter
 	
 	private static final String OUTPUT_FOLDER_NAME = "ebird";
 	
-	private static void parseCsv(String csvPath) throws FileNotFoundException, IOException
+	private static void parseCsv(String csvFileDir) throws FileNotFoundException, IOException
 	{
 		//Initialize RangeMap for quickly finding subId for a date
-		try(FileInputStream myDataStream = new FileInputStream(csvPath + File.separator + "MyEBirdData.csv");
+		String csvFilePath = csvFileDir + File.separator + "MyEBirdData.csv";
+		try(FileInputStream myDataStream = new FileInputStream(csvFilePath);
 			CsvListReader csvListReader = new CsvListReader(new InputStreamReader(myDataStream,"UTF-8"),CsvPreference.STANDARD_PREFERENCE))
 		{			
 			csvListReader.getHeader(true);
 			List<String> values;
 			
-			System.out.println("Parsing CSV file...");
+			System.out.print("Parsing " + csvFilePath + "...");
 			while ((values = csvListReader.read()) != null)
 			{
 				Integer duration = 0;
@@ -98,8 +99,8 @@ public abstract class MediaSorter
 					checklistStatsMap.get(subId).incNumAssetsUploaded(numUploaded);
 				}
 			}
-			System.out.println("DONE parsing!\nTraversing directory...");
 		}	
+		System.out.println("Done!");
 	}
 	
 	private static void checkMetadataAndMove(File f,String outputPath,Long hrsOffset,Set<String> subIds) throws IOException
@@ -117,19 +118,21 @@ public abstract class MediaSorter
 		if (!isImage && !isAudio && !isVideo)
 			return;
 		
-		FileInputStream mediaStream = new FileInputStream(f);
-		Metadata metadata = null; 
-		try {
-			metadata = ImageMetadataReader.readMetadata(mediaStream);		
-		}
-		catch(ImageProcessingException ipe)
+		Metadata metadata = null;
+		try(FileInputStream mediaStream = new FileInputStream(f))
 		{
-			System.err.println("Error reading " + fileName + ": " + ipe);
+			try {
+				metadata = ImageMetadataReader.readMetadata(mediaStream);		
+			}
+			catch(ImageProcessingException ipe)
+			{
+				System.err.println("Error reading " + fileName + ": " + ipe);
+			}
+			catch(StringIndexOutOfBoundsException sobe)
+			{
+				System.err.println("Error reading " + fileName + ": " + sobe);
+			}
 		}
-		catch(StringIndexOutOfBoundsException sobe)
-		{
-			System.err.println("Error reading " + fileName + ": " + sobe);
-		}		
 		
 		Directory directory = null; 
 		String dateTimeOrigStr = null;
@@ -185,7 +188,7 @@ public abstract class MediaSorter
 			}
 		}
 		
-		if (hrsOffset != 0)
+		if (hrsOffset != 0l)
 			mediaTime = mediaTime.plusHours(hrsOffset);
 
 		String datePath = outputPath + File.separator + mediaTime.format(folderDtf);
@@ -213,21 +216,29 @@ public abstract class MediaSorter
 		else
 			movedFile = new File(datePath + File.separator + f.getName());
 		
-		System.out.println("Moving " + fileName + " to " + movedFile.getPath());
+		System.out.println("Moving " + f.getPath() + " to " + movedFile.getPath());
 		Files.move(f,movedFile);
 	}
 	
 	public static void main(String[] args) throws IOException
 	{
-		if (args.length < 2)
+		if (args.length < 1)
 		{
-			System.out.println("USAGE: 1st argument is path to directory that contains MyEBirdData.csv file (e.g. downloads/ebird). 2nd argument is path to media directory.");
+			System.out.println("USAGE: 1st argument is path to your media directory that will be reorganized. 2nd argument (optional) is known EXIF offset in hours (default to 0). 3rd argument (optional) is the directory that contains your MyEBirdData.csv file, if it is not in your media directory");
 			return;
 		}
 		
-		parseCsv(args[0]);
-		
-		String mediaPath = args[1];		
+		String mediaPath = args[0];	
+		try {
+			parseCsv(mediaPath);
+		}
+		catch (FileNotFoundException fnfe)
+		{
+			if (args.length == 3)
+				parseCsv(args[2]);
+			else
+				throw fnfe;
+		}		
 		
 		//make output directory inside the provided media folder
 		String outputPath = mediaPath + File.separator + OUTPUT_FOLDER_NAME;
@@ -236,8 +247,9 @@ public abstract class MediaSorter
 			outputDir.mkdir();			
 		
 		Set<String> subIds = new TreeSet<>();
-		Long hrsOffset= args.length == 3 ? Long.valueOf(args[2]) : 0l;
+		Long hrsOffset= args.length >= 2 ? Long.valueOf(args[1]) : 0l;
 		Iterable<File> traverser = Files.fileTraverser().depthFirstPreOrder(new File(mediaPath));
+		System.out.println("Searching " + mediaPath + " and subdirectories for media files...");
 		for (File f:traverser)
 			checkMetadataAndMove(f,outputPath,hrsOffset,subIds);
 		
@@ -256,7 +268,7 @@ public abstract class MediaSorter
 			fw.close();
 		}
 		
-		System.out.println("ALL DONE! Now upload your media to eBird...");
+		System.out.println("ALL DONE! Now you can use the generated checklistIndex CSV file to find and prioritize your uploads to eBird :-)");
 		
 	} //END main
 }
