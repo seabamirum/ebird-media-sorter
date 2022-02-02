@@ -48,7 +48,7 @@ public abstract class MediaSorter
 	
 	private static final Set<String> audioExtensions = ImmutableSet.of("wav","mp3","m4a");
 	private static final Set<String> videoExtensions = ImmutableSet.of("mov","m4v","mp4");
-	private static final Set<String> imageExtensions = ImmutableSet.of("jpg","jpeg","cr2");	
+	private static final Set<String> imageExtensions = ImmutableSet.of("jpg","jpeg","cr2","png");	
 	
 	private static final String OUTPUT_FOLDER_NAME = "ebird";
 	
@@ -80,6 +80,8 @@ public abstract class MediaSorter
 					
 				String subId = values.get(0);
 				String obsDtStr = values.get(11);
+				String subnational1Code = values.get(5);
+				String county = values.get(6);
 				
 				LocalDateTime subBeginTime = LocalDateTime.parse(obsDtStr + " " + obsTimeStr,csvDtf);				
 				LocalDateTime subEndTime = subBeginTime.plusMinutes(duration);
@@ -87,7 +89,7 @@ public abstract class MediaSorter
 				rangeMap.put(Range.closed(subBeginTime,subEndTime),subId);
 				
 				if (!checklistStatsMap.containsKey(subId))				
-					checklistStatsMap.put(subId,new SubStats(subBeginTime));				
+					checklistStatsMap.put(subId,new SubStats(subBeginTime,subnational1Code,county));				
 				
 				int numUploaded = 0;
 				if (values.size() > 22)
@@ -103,7 +105,7 @@ public abstract class MediaSorter
 		System.out.println("Done!");
 	}
 	
-	private static void checkMetadataAndMove(File f,String outputPath,Long hrsOffset,Set<String> subIds) throws IOException
+	private static void checkMetadataAndMove(File f,String outputPath,Long hrsOffset,Set<String> subIds,boolean sepYearDir) throws IOException
 	{
 		if (f.isDirectory() || f.getPath().contains(OUTPUT_FOLDER_NAME))
 			return;
@@ -191,9 +193,20 @@ public abstract class MediaSorter
 		if (hrsOffset != 0l)
 			mediaTime = mediaTime.plusHours(hrsOffset);
 
-		String datePath = outputPath + File.separator + mediaTime.format(folderDtf);
+		String dateDirPath;
+		if (sepYearDir)
+		{
+			String yearDirPath = outputPath + File.separator + mediaTime.getYear();
+			File yearDir = new File(yearDirPath);
+			if (!yearDir.exists())
+				yearDir.mkdir();
+			
+			dateDirPath = yearDirPath + File.separator + mediaTime.format(folderDtf);
+		}	
+		else
+			dateDirPath = outputPath + File.separator + mediaTime.format(folderDtf);
 		
-		File dateDir = new File(datePath);
+		File dateDir = new File(dateDirPath);
 		if (!dateDir.exists())
 			dateDir.mkdir();
 		
@@ -203,7 +216,7 @@ public abstract class MediaSorter
 		File movedFile;
 		if (subId != null)
 		{
-			String subIdPath = datePath + File.separator + subId;
+			String subIdPath = dateDirPath + File.separator + subId;
 			File subIdDir = new File(subIdPath);
 			if (!subIdDir.exists())
 				subIdDir.mkdir();
@@ -214,7 +227,7 @@ public abstract class MediaSorter
 			checklistStatsMap.get(subId).incNumAssetsLocal();
 		}
 		else
-			movedFile = new File(datePath + File.separator + f.getName());
+			movedFile = new File(dateDirPath + File.separator + f.getName());
 		
 		System.out.println("Moving " + f.getPath() + " to " + movedFile.getPath());
 		Files.move(f,movedFile);
@@ -234,7 +247,7 @@ public abstract class MediaSorter
 		}
 		catch (FileNotFoundException fnfe)
 		{
-			if (args.length == 3)
+			if (args.length >= 3)
 				parseCsv(args[2]);
 			else
 				throw fnfe;
@@ -250,18 +263,22 @@ public abstract class MediaSorter
 		Long hrsOffset= args.length >= 2 ? Long.valueOf(args[1]) : 0l;
 		Iterable<File> traverser = Files.fileTraverser().depthFirstPreOrder(new File(mediaPath));
 		System.out.println("Searching " + mediaPath + " and subdirectories for media files...");
+		String opts = args.length > 3 ? args[3] : "";
+		boolean sepYearDir = !opts.isEmpty() && 'Y' == opts.charAt(0);
 		for (File f:traverser)
-			checkMetadataAndMove(f,outputPath,hrsOffset,subIds);
+			checkMetadataAndMove(f,outputPath,hrsOffset,subIds,sepYearDir);
 		
 		if (!subIds.isEmpty())
 		{
 			FileWriter fw = new FileWriter(mediaPath + File.separator + "checklistIndex_" + subIds.size() + ".csv");		
-			fw.write("Checklist Link,Date,Num Assets Uploaded,Num Assets Local\n");
+			fw.write("Checklist Link,Date,Subnat1,County,Num Uploaded,Num Local\n");
 			for (String subId:subIds)
 			{
 				SubStats ss = checklistStatsMap.get(subId);
 				fw.write("https://ebird.org/checklist/" + subId + ",");
 				fw.write(ss.getDate() + ",");
+				fw.write(ss.getSubnational1Code() + ",");
+				fw.write(ss.getCounty() + ",");
 				fw.write(ss.getNumAssetsUploaded() + ",");
 				fw.write(ss.getNumAssetsLocal() + "\n");
 			}
