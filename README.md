@@ -7,7 +7,7 @@ Program to sort photos, audio, and video on the file system by date and eBird ch
 (4) Download your eBird data from https://ebird.org/downloadMyData and extract the CSV file into the media directory that you would like to reorganize<br/>
 (5) Run the program by typing in: java -jar ebird-media-sorter-[version].jar arg1 (arg2) (arg3) (arg4) <br/>
   Argument 1 is the location of the directory where you would like to reorganize your media, e.g. /home/Pictures/TexasTrip<br/>
-  Argument 2 (optional) is an offset in hours, if your device time is known to be off a number of hours from local time for a folder. The default is 0.<br/>
+  Argument 2 (optional) is an integer offset in hours, if your device time is known to be off a number of hours from local time for a folder. The default is 0. Jpg/Jpeg files will have their EXIF metadata EDITED to reflect this offset.<br/>
   Argument 3 (optional) is the directory of your "MyEBirdData.csv" file, if not already present in the media folder from argument 1<br/>
   Argument 4 (optional) consists currently of one option, "Y" -- use this if you are running the process on many years worth of media and would like an additional super-folder for each year, to improve browsing performance in the operating system. For example,
   java -jar ebird-media-sorter-1.0.3.jar /home/seab/Pictures 0 /home/seab/Documents Y<br/>
