@@ -1,11 +1,14 @@
 package fun.seabird;
 
+import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
@@ -16,6 +19,16 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
 
+import org.apache.commons.imaging.ImageReadException;
+import org.apache.commons.imaging.ImageWriteException;
+import org.apache.commons.imaging.Imaging;
+import org.apache.commons.imaging.common.ImageMetadata;
+import org.apache.commons.imaging.formats.jpeg.JpegImageMetadata;
+import org.apache.commons.imaging.formats.jpeg.exif.ExifRewriter;
+import org.apache.commons.imaging.formats.tiff.TiffImageMetadata;
+import org.apache.commons.imaging.formats.tiff.constants.ExifTagConstants;
+import org.apache.commons.imaging.formats.tiff.write.TiffOutputDirectory;
+import org.apache.commons.imaging.formats.tiff.write.TiffOutputSet;
 import org.apache.commons.lang3.StringUtils;
 import org.supercsv.io.CsvListReader;
 import org.supercsv.prefs.CsvPreference;
@@ -39,7 +52,7 @@ public abstract class MediaSorter
 {	
 	private static final DateTimeFormatter csvDtf = DateTimeFormatter.ofPattern("yyyy-MM-dd hh:mm a");
 	private static final DateTimeFormatter imageDtf = DateTimeFormatter.ofPattern("yyyy:MM:dd HH:mm:ss");
-	private static final DateTimeFormatter videoDtf = DateTimeFormatter.ofPattern("EEE MMM dd HH:mm:ss zzz yyyy");
+	private static final DateTimeFormatter timezoneDtf = DateTimeFormatter.ofPattern("EEE MMM dd HH:mm:ss zzz yyyy");
 	private static final DateTimeFormatter folderDtf = DateTimeFormatter.ofPattern("yyyy-MM-dd");
 	
 	private static final RangeMap<LocalDateTime, String> rangeMap = TreeRangeMap.create();	
@@ -48,7 +61,7 @@ public abstract class MediaSorter
 	
 	private static final Set<String> audioExtensions = ImmutableSet.of("wav","mp3","m4a");
 	private static final Set<String> videoExtensions = ImmutableSet.of("mov","m4v","mp4");
-	private static final Set<String> imageExtensions = ImmutableSet.of("jpg","jpeg","cr2","png");	
+	private static final Set<String> imageExtensions = ImmutableSet.of("jpg","jpeg","png","crx","crw","cr2","cr3","crm","arw","nef","orf","raf");	
 	
 	private static final String OUTPUT_FOLDER_NAME = "ebird";
 	
@@ -103,7 +116,68 @@ public abstract class MediaSorter
 			}
 		}	
 		System.out.println("Done!");
-	}
+	}	
+	
+    private static void changeDateTimeOrig(final File jpegImageFile, final File dst, String newDateTime)
+            throws IOException, ImageReadException, ImageWriteException {
+
+        try (FileOutputStream fos = new FileOutputStream(dst);
+                OutputStream os = new BufferedOutputStream(fos)) {
+
+            TiffOutputSet outputSet = null;
+
+            // note that metadata might be null if no metadata is found.
+            final ImageMetadata metadata = Imaging.getMetadata(jpegImageFile);
+            
+            if (!(metadata instanceof JpegImageMetadata))
+            	throw new ImageReadException("Can only modify EXIF of jpg files");
+            
+            final JpegImageMetadata jpegMetadata = (JpegImageMetadata) metadata;          
+            final TiffImageMetadata exif = jpegMetadata.getExif();
+
+            if (null != exif) {
+                // TiffImageMetadata class is immutable (read-only).
+                // TiffOutputSet class represents the Exif data to write.
+                //
+                // Usually, we want to update existing Exif metadata by
+                // changing
+                // the values of a few fields, or adding a field.
+                // In these cases, it is easiest to use getOutputSet() to
+                // start with a "copy" of the fields read from the image.
+                outputSet = exif.getOutputSet();
+            }
+            
+            // if file does not contain any exif metadata, we create an empty
+            // set of exif metadata. Otherwise, we keep all of the other
+            // existing tags.
+            if (null == outputSet) {
+                outputSet = new TiffOutputSet();
+            }
+
+            {
+                // Example of how to add a field/tag to the output set.
+                //
+                // Note that you should first remove the field/tag if it already
+                // exists in this directory, or you may end up with duplicate
+                // tags. See above.
+                //
+                // Certain fields/tags are expected in certain Exif directories;
+                // Others can occur in more than one directory (and often have a
+                // different meaning in different directories).
+                //
+                // TagInfo constants often contain a description of what
+                // directories are associated with a given tag.
+                //
+                final TiffOutputDirectory exifDirectory = outputSet.getOrCreateExifDirectory();
+                // make sure to remove old value if present (this method will
+                // not fail if the tag does not exist).
+                exifDirectory.removeField(ExifTagConstants.EXIF_TAG_DATE_TIME_ORIGINAL);
+                exifDirectory.add(ExifTagConstants.EXIF_TAG_DATE_TIME_ORIGINAL,newDateTime);
+            }
+
+            new ExifRewriter().updateExifMetadataLossless(jpegImageFile, os,outputSet);
+        }
+    }
 	
 	private static void checkMetadataAndMove(File f,String outputPath,Long hrsOffset,Set<String> subIds,boolean sepYearDir) throws IOException
 	{
@@ -138,6 +212,8 @@ public abstract class MediaSorter
 		
 		Directory directory = null; 
 		String dateTimeOrigStr = null;
+		DateTimeFormatter dtf = isImage ? imageDtf : timezoneDtf;
+		int creationTimeTag = ExifDirectoryBase.TAG_DATETIME_ORIGINAL;
 		if (metadata != null)
 		{
 			if (isImage)
@@ -150,19 +226,19 @@ public abstract class MediaSorter
 					directory = metadata.getFirstDirectoryOfType(QuickTimeMediaDirectory.class);				
 			}
 			else if (isAudio && fileExt.equals("wav"))
-					directory = metadata.getFirstDirectoryOfType(WavDirectory.class);
+				directory = metadata.getFirstDirectoryOfType(WavDirectory.class);
 			
 			if (directory != null)
 			{
-		        if (isImage)
-		        	dateTimeOrigStr = directory.getString(ExifDirectoryBase.TAG_DATETIME_ORIGINAL);
-		        else if (isVideo)
+		        if (isVideo)
 		        	if (fileExt.equals("mp4"))
-		        		dateTimeOrigStr = directory.getString(Mp4Directory.TAG_CREATION_TIME);
+			        	creationTimeTag = Mp4Directory.TAG_CREATION_TIME;
 					else if (fileExt.equals("mov"))
-						dateTimeOrigStr = directory.getString(QuickTimeMediaDirectory.TAG_CREATION_TIME);
+						creationTimeTag = QuickTimeMediaDirectory.TAG_CREATION_TIME;
 		        else if (isAudio)
-		        	dateTimeOrigStr = directory.getString(WavDirectory.TAG_DATE_CREATED);	
+		        	creationTimeTag = WavDirectory.TAG_DATE_CREATED;	
+		        
+	        	dateTimeOrigStr = directory.getString(creationTimeTag);
 			}
 		}
         
@@ -172,26 +248,23 @@ public abstract class MediaSorter
 			dateTimeOrigStr = new Date(f.lastModified()).toString();
 			if (dateTimeOrigStr == null)
 				return;
-			mediaTime = LocalDateTime.parse(dateTimeOrigStr,videoDtf);
+			mediaTime = LocalDateTime.parse(dateTimeOrigStr,timezoneDtf);
 		}
 		else
 		{
-			try 
+			try
 			{
-				if (isImage)
-					mediaTime = LocalDateTime.parse(dateTimeOrigStr,imageDtf);
-				else
-					mediaTime = LocalDateTime.parse(dateTimeOrigStr,videoDtf);					
-			} 
+				mediaTime = LocalDateTime.parse(dateTimeOrigStr,dtf);					
+			}
 			catch (DateTimeParseException dtpe) 
 			{
-				System.err.println("Can't find creation time for " + fileName);
+				System.err.println("Can't parse creation time for " + fileName + ": " + dateTimeOrigStr);
 				return;
 			}
+			
+			if (hrsOffset != 0l)
+				mediaTime = mediaTime.plusHours(hrsOffset);
 		}
-		
-		if (hrsOffset != 0l)
-			mediaTime = mediaTime.plusHours(hrsOffset);
 
 		String dateDirPath;
 		if (sepYearDir)
@@ -229,8 +302,28 @@ public abstract class MediaSorter
 		else
 			movedFile = new File(dateDirPath + File.separator + f.getName());
 		
-		System.out.println("Moving " + f.getPath() + " to " + movedFile.getPath());
-		Files.move(f,movedFile);
+		
+		if (hrsOffset != 0l)
+		{
+			try 
+			{
+				String newDateTime = mediaTime.format(dtf);
+				System.out.println("Moving and changing EXIF date of " + f.getPath() + " to " + movedFile.getPath() + ", " + newDateTime);
+				changeDateTimeOrig(f,movedFile,newDateTime);
+				f.delete();
+			} 
+			catch (Exception e)
+			{
+				e.printStackTrace();
+				System.out.println("Moving " + f.getPath() + " to " + movedFile.getPath());
+				Files.move(f,movedFile);			
+			}
+		}
+		else		
+		{
+			System.out.println("Moving " + f.getPath() + " to " + movedFile.getPath());
+			Files.move(f,movedFile);
+		}
 	}
 	
 	public static void main(String[] args) throws IOException
@@ -250,7 +343,7 @@ public abstract class MediaSorter
 			if (args.length >= 3)
 				parseCsv(args[2]);
 			else
-				throw fnfe;
+				System.err.println("WARNING: No MyEBirdData.csv found!");
 		}		
 		
 		//make output directory inside the provided media folder
