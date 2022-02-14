@@ -12,6 +12,7 @@ public class MediaSortCmd
 	private Long hrsOffset = 0l;
 	private File csvFile;
 	private boolean sepYear = false;	
+	private boolean createParentDir = true;
 	
 	public Long getHrsOffset() {
 		return hrsOffset;
@@ -42,6 +43,12 @@ public class MediaSortCmd
 	}
 	public void setPb(JProgressBar pb) {
 		this.pb = pb;
+	}
+	public boolean isCreateParentDir() {
+		return createParentDir;
+	}
+	public void setCreateParentDir(boolean createParentDir) {
+		this.createParentDir = createParentDir;
 	}
 	
 }

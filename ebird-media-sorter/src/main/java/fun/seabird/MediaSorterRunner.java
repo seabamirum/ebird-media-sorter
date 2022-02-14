@@ -32,6 +32,7 @@ import org.apache.commons.imaging.formats.tiff.TiffImageMetadata;
 import org.apache.commons.imaging.formats.tiff.constants.ExifTagConstants;
 import org.apache.commons.imaging.formats.tiff.write.TiffOutputDirectory;
 import org.apache.commons.imaging.formats.tiff.write.TiffOutputSet;
+import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.supercsv.io.CsvListReader;
 import org.supercsv.prefs.CsvPreference;
@@ -62,7 +63,7 @@ public class MediaSorterRunner
 	private static final Set<String> videoExtensions = ImmutableSet.of("mov","m4v","mp4");
 	private static final Set<String> imageExtensions = ImmutableSet.of("jpg","jpeg","png","crx","crw","cr2","cr3","crm","arw","nef","orf","raf");	
 	
-	private static final String OUTPUT_FOLDER_NAME = "ebird";
+	static final String OUTPUT_FOLDER_NAME = "ebird";
 	
 	private final RangeMap<LocalDateTime, String> rangeMap = TreeRangeMap.create();
 	private final Map<String,SubStats> checklistStatsMap = new TreeMap<>();	
@@ -187,7 +188,7 @@ public class MediaSorterRunner
     
     private static boolean isEligibleMediaFile(File f)
     {
-    	if (f.isDirectory() || f.getPath().contains(OUTPUT_FOLDER_NAME))
+    	if (f.isDirectory())
 			return false;
 		
 		String fileName = f.getName();
@@ -326,37 +327,34 @@ public class MediaSorterRunner
 			try 
 			{
 				String newDateTime = mediaTime.format(dtf);
-				System.out.println("Moving and changing EXIF date of " + f.getPath() + " to " + movedFile.getPath() + ", " + newDateTime);
+				System.out.println("Processing and changing EXIF date of " + f.getPath());
 				changeDateTimeOrig(f,movedFile,newDateTime);
 				f.delete();
 			} 
 			catch (Exception e)
 			{
 				e.printStackTrace();
-				System.out.println("Moving " + f.getPath() + " to " + movedFile.getPath());
+				System.out.println("Processing " + f.getPath());
 				Files.move(f,movedFile);			
 			}
 		}
 		else		
 		{
-			System.out.println("Moving " + f.getPath() + " to " + movedFile.getPath());
+			System.out.println("Processing " + f.getPath());
 			Files.move(f,movedFile);
 		}
 	}	
 	
-	public void run() throws FileNotFoundException, IOException
+	public String run() throws FileNotFoundException, IOException
 	{
 		if (msc.getCsvFile() != null)
-			parseCsv(msc.getCsvFile());
-		
-		JProgressBar pb = msc.getPb();
-		if (pb != null)
-			pb.setValue(0);
+			parseCsv(msc.getCsvFile());		
 		
 		String mediaPath = msc.getMediaPath();	
 		
 		//make output directory inside the provided media folder
-		String outputPath = mediaPath + File.separator + OUTPUT_FOLDER_NAME;
+		String outputFolderName = OUTPUT_FOLDER_NAME + "_" + new Date().getTime();
+		String outputPath = mediaPath + File.separator + outputFolderName;
 		File outputDir = new File(outputPath);
 		if (!outputDir.exists())
 			outputDir.mkdir();			
@@ -376,16 +374,44 @@ public class MediaSorterRunner
 		boolean sepYearDir = msc.isSepYear();
 		int numFiles = eligibleFiles.size();
 		int i=1;
+		JProgressBar pb = msc.getPb();
 		for (File f:eligibleFiles)
 		{			
 			checkMetadataAndMove(f,outputPath,hrsOffset,subIds,sepYearDir);
 			if (pb != null)
-				pb.setValue(((i++)/numFiles)*100);
+				pb.setValue((int) (((i++)/((double)numFiles))*100));
 		}
 		
+		//Move all files out of parent directory we created
+		if (!msc.isCreateParentDir())
+		{
+			System.out.println("Cleaning up...");
+			Iterable<File> traverser2 = Files.fileTraverser().depthFirstPreOrder(new File(outputPath));
+			for (File f:traverser2)	
+			{
+				if (!f.exists()) //if we move the directories, the files follow
+					continue;
+				
+				String newPath = StringUtils.remove(f.getAbsolutePath(),outputFolderName + "/");
+				if (f.getAbsolutePath().equals(newPath)) //could be the output dir itself
+					continue;
+				
+				Files.move(f,new File(newPath));
+			}
+			outputDir.delete();
+		}
+		else
+		{
+			File finalOutputDir = new File (mediaPath + File.separator + OUTPUT_FOLDER_NAME);
+			FileUtils.deleteDirectory(finalOutputDir);			
+			outputDir.renameTo(finalOutputDir);
+		}
+		
+		String indexPath = null;
 		if (!subIds.isEmpty())
 		{
-			FileWriter fw = new FileWriter(mediaPath + File.separator + "checklistIndex_" + subIds.size() + ".csv");		
+			indexPath = mediaPath + File.separator + "checklistIndex_" + new Date().getTime() + ".csv";
+			FileWriter fw = new FileWriter(indexPath);		
 			fw.write("Checklist Link,Date,Subnat1,County,Num Uploaded,Num Local\n");
 			for (String subId:subIds)
 			{
@@ -403,7 +429,8 @@ public class MediaSorterRunner
 		if (pb != null)
 			pb.setValue(100);
 		
-		System.out.println("ALL DONE! Now you can use the generated checklistIndex CSV file to find and prioritize your uploads to eBird :-)");
+		System.out.println("ALL DONE! :-)");
+		return indexPath;
 		
 	} //END main
 }

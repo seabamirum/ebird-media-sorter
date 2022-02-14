@@ -1,5 +1,6 @@
 package fun.seabird;
 
+import java.awt.Desktop;
 import java.awt.GridLayout;
 import java.awt.HeadlessException;
 import java.awt.event.ActionEvent;
@@ -19,10 +20,12 @@ import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JProgressBar;
+import javax.swing.JScrollPane;
 import javax.swing.JSlider;
 import javax.swing.JTextArea;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
+import javax.swing.filechooser.FileFilter;
 import javax.swing.text.BadLocationException;
 import javax.swing.text.Document;
 
@@ -33,6 +36,28 @@ public class MediaSortFrame extends JFrame
 	 */
 	private static final long serialVersionUID = -960332919832074912L;	
 	
+	private static String titleText = "eBird Media Sorter";	
+	private static String subDirText = "Create Subdirectory";
+	private static String browseBtnText = "Choose Media Directory";
+	private static String resBtnText = "See Results!";
+	private static String exifAdjText = "EXIF Adjustment (in hours)";
+	private static String csvBtnText = "Choose MyEBirdData CSV File";
+	private static String sepYearText = "Group Date Folders by Year"; 
+	private static String runBtnText = "Run"; 
+	
+	private class CsvFileFilter extends FileFilter
+	{
+		@Override
+		public boolean accept(File f) {
+			return f.isDirectory() || f.getName().endsWith("csv");
+		}
+
+		@Override
+		public String getDescription() {
+			return "CSV Files";
+		}
+	}
+		
 	private class CustomOutputStream extends OutputStream {
 	    private JTextArea textArea;
 	     
@@ -51,23 +76,36 @@ public class MediaSortFrame extends JFrame
 
 	public MediaSortFrame() throws HeadlessException 
 	{
-		super("eBird Media Sorter");
+		super(titleText);
 		
 		final MediaSortCmd msc = new MediaSortCmd();
+		final MediaSortResult msr = new MediaSortResult();
 		
-		JButton browseBut = new JButton("Choose Media Directory");
+		JButton browseBut = new JButton(browseBtnText);
 		JLabel browseButLbl = new JLabel();
-		JLabel offsetLbl = new JLabel("Adjust EXIF (in hours)");
+		JLabel offsetLbl = new JLabel(exifAdjText);
 
-		JButton runBut = new JButton("Run");
+		JButton runBut = new JButton(runBtnText);
 		runBut.setEnabled(false);
-		JButton csvBrowse = new JButton("Choose CSV File");
+		JButton csvBrowse = new JButton(csvBtnText);
 		JLabel csvBrowseLbl = new JLabel();
 		
 		JTextArea outputLog = new JTextArea();
+		outputLog.setLineWrap(true);
 		outputLog.setEditable(false);
+		
+		JScrollPane scroll = new JScrollPane (outputLog);
+	    scroll.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
+	    scroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
 
 		JProgressBar pb = new JProgressBar();
+		pb.setVisible(false);
+		
+		JCheckBox parentDirCb = new JCheckBox(subDirText,true);
+		
+		JButton resBtn = new JButton(resBtnText);
+		resBtn.setEnabled(false);
+		resBtn.setVisible(false);
 		
 		final JFrame mediaFrame = this;
 		
@@ -98,7 +136,8 @@ public class MediaSortFrame extends JFrame
 			        	String path = fc.getSelectedFile().getPath();
 			        	msc.setMediaPath(path);
 			        	browseButLbl.setText(path);
-			        	runBut.setEnabled(true);
+			        	runBut.setEnabled(true);			        	
+			        	parentDirCb.setText(subDirText + " " + msc.getMediaPath() + File.separator + MediaSorterRunner.OUTPUT_FOLDER_NAME);
 			        }
 				}
 			}
@@ -111,6 +150,7 @@ public class MediaSortFrame extends JFrame
 			{
 				JFileChooser fc = new JFileChooser();	
 				fc.setFileSelectionMode(JFileChooser.FILES_ONLY);
+				fc.setFileFilter(new CsvFileFilter());
 				int returnVal = fc.showOpenDialog(mediaFrame);
 
 		        if (returnVal == JFileChooser.APPROVE_OPTION)
@@ -122,15 +162,25 @@ public class MediaSortFrame extends JFrame
 			}
 		});
 		
-		JCheckBox cb = new JCheckBox("Folder for Year");
-		cb.addItemListener(new ItemListener()
+		JCheckBox sepYearDirCb = new JCheckBox(sepYearText);
+		sepYearDirCb.addItemListener(new ItemListener()
 		{
 			@Override
 			public void itemStateChanged(ItemEvent e) 
 			{
 				msc.setSepYear(e.getStateChange() == 1);				
 			}
-		});		
+		});
+		
+		
+		parentDirCb.addItemListener(new ItemListener()
+		{
+			@Override
+			public void itemStateChanged(ItemEvent e) 
+			{
+				msc.setCreateParentDir(e.getStateChange() == 1);				
+			}
+		});
 		
 		runBut.addActionListener(new ActionListener()
 		{
@@ -139,6 +189,8 @@ public class MediaSortFrame extends JFrame
 			{
 				new Thread(() -> {
 					runBut.setEnabled(false);
+					pb.setValue(0);
+					pb.setVisible(true);
 					
 					Document log = outputLog.getDocument();
 					try {
@@ -147,7 +199,12 @@ public class MediaSortFrame extends JFrame
 						e2.printStackTrace();
 					}
 					try {
-						new MediaSorterRunner(msc).run();
+						msr.setIndexPath(new MediaSorterRunner(msc).run());
+						if (msr.getIndexPath() != null)
+						{
+							resBtn.setEnabled(true);
+							resBtn.setVisible(true);
+						}
 					} catch (IOException e1) {
 						e1.printStackTrace();
 					}
@@ -159,6 +216,22 @@ public class MediaSortFrame extends JFrame
 						
 			}
 		});
+		
+		resBtn.addActionListener(new ActionListener()
+		{
+			@Override
+			public void actionPerformed(ActionEvent e) 
+			{
+				Desktop desktop = Desktop.getDesktop();
+				File resFile = new File(msr.getIndexPath());
+				if(resFile.exists())
+					try {
+						desktop.open(resFile);
+					} catch (IOException e1) {						
+						e1.printStackTrace();
+					} 
+			}
+		});		
 		
 		//exit on window close
 		setDefaultCloseOperation(EXIT_ON_CLOSE);		
@@ -183,22 +256,22 @@ public class MediaSortFrame extends JFrame
 		jp3.add(csvBrowse);
 		jp3.add(csvBrowseLbl);
 		
-		jp4.setLayout(new GridLayout(2,1,10,10));
-		jp4.add(cb);
-		jp4.add(runBut);			
+		jp4.setLayout(new GridLayout(4,1,10,10));
+		jp4.add(sepYearDirCb);
+		jp4.add(parentDirCb);
+		jp4.add(runBut);
+		jp4.add(resBtn);
 		
 		pb.setValue(0);
-		pb.setBounds(0,0,420,50);
 		pb.setStringPainted(true);
 		msc.setPb(pb);
-		
 		jp5.add(pb);
 		
 		jp6.setLayout(new GridLayout(1,1));
 		PrintStream printStream = new PrintStream(new CustomOutputStream(outputLog));
 		System.setOut(printStream);
 		System.setErr(printStream);
-		jp6.add(outputLog);	
+		jp6.add(scroll);	
 		
 		jp.setLayout(new BoxLayout (jp, BoxLayout.Y_AXIS));
 		jp.add(jp1);
@@ -210,7 +283,7 @@ public class MediaSortFrame extends JFrame
 
 		add(jp);
 		
-		setSize(500,300);
+		setSize(600,400);
 		          
 		setVisible(true);//making the frame visible 
 	}
