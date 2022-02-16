@@ -42,7 +42,8 @@ public class MediaSortFrame extends JFrame
 	private static String resBtnText = "See Results!";
 	private static String exifAdjText = "EXIF Adjustment (in hours)";
 	private static String csvBtnText = "Choose MyEBirdData CSV File";
-	private static String sepYearText = "Group Date Folders by Year"; 
+	private static String sepYearText = "Group Date Folders by Year";
+	private static String symbLinkText = "Generate Symbolic Links Instead of Moving Files"; 
 	private static String runBtnText = "Run"; 
 	
 	private class CsvFileFilter extends FileFilter
@@ -83,65 +84,86 @@ public class MediaSortFrame extends JFrame
 		
 		JButton browseBut = new JButton(browseBtnText);
 		JLabel browseButLbl = new JLabel();
-		JLabel offsetLbl = new JLabel(exifAdjText);
-
-		JButton runBut = new JButton(runBtnText);
-		runBut.setEnabled(false);
+		
+		JLabel offsetLbl = new JLabel(exifAdjText);		
+		JSlider offsetSlider = new JSlider(-6,6,0);
+		offsetSlider.setMajorTickSpacing(1);
+		offsetSlider.setPaintTicks(true);
+		offsetSlider.setPaintLabels(true);
+		offsetSlider.setSnapToTicks(true);
+		
 		JButton csvBrowse = new JButton(csvBtnText);
 		JLabel csvBrowseLbl = new JLabel();
 		
+		JCheckBox sepYearDirCb = new JCheckBox(sepYearText,false);
+		JCheckBox parentDirCb = new JCheckBox(subDirText,true);
+		JCheckBox symbLinkCb = new JCheckBox(symbLinkText,false);
+		
+		JButton runBut = new JButton(runBtnText);
+		runBut.setEnabled(false);
+		
+		JProgressBar pb = new JProgressBar();
+		pb.setVisible(false);
+		pb.setValue(0);
+		pb.setStringPainted(true);
+		msc.setPb(pb);
+		
+		//Log output
 		JTextArea outputLog = new JTextArea();
 		outputLog.setLineWrap(true);
-		outputLog.setEditable(false);
-		
+		outputLog.setEditable(false);		
 		JScrollPane scroll = new JScrollPane (outputLog);
 	    scroll.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
 	    scroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
-
-		JProgressBar pb = new JProgressBar();
-		pb.setVisible(false);
-		
-		JCheckBox parentDirCb = new JCheckBox(subDirText,true);
+	    PrintStream printStream = new PrintStream(new CustomOutputStream(outputLog));
+		System.setOut(printStream);
+		System.setErr(printStream);
 		
 		JButton resBtn = new JButton(resBtnText);
 		resBtn.setEnabled(false);
 		resBtn.setVisible(false);
 		
-		final JFrame mediaFrame = this;
+		final JFrame mediaFrame = this;	
 		
-		JSlider t1 = new JSlider(-6,6,0);
-		t1.setMajorTickSpacing(1);
-		t1.setPaintTicks(true);
-		t1.setPaintLabels(true);
-		t1.setSnapToTicks(true);
-		t1.addChangeListener(new ChangeListener()
+		browseBut.addActionListener(new ActionListener()
+		{
+			@Override
+			public void actionPerformed(ActionEvent e) 
+			{
+				JFileChooser fc = new JFileChooser();	
+				fc.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+				int returnVal = fc.showOpenDialog(mediaFrame);
+
+		        if (returnVal == JFileChooser.APPROVE_OPTION)
+		        {
+		        	String path = fc.getSelectedFile().getPath();
+		        	msc.setMediaPath(path);
+		        	browseButLbl.setText(path);
+		        	runBut.setEnabled(true);			        	
+		        	parentDirCb.setText(subDirText + " " + msc.getMediaPath() + File.separator + MediaSorterRunner.OUTPUT_FOLDER_NAME);
+		        }
+			}
+		});
+		
+		offsetSlider.addChangeListener(new ChangeListener()
 		{
 			@Override
 			public void stateChanged(ChangeEvent e) {
-				msc.setHrsOffset(Long.valueOf(t1.getValue()));
-			}			
-		});
-
-		browseBut.addActionListener(new ActionListener()
-			{
-				@Override
-				public void actionPerformed(ActionEvent e) 
+				int offset = offsetSlider.getValue();				
+				msc.setHrsOffset(Long.valueOf(offset));
+				
+				if (offset != 0)
 				{
-					JFileChooser fc = new JFileChooser();	
-					fc.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
-					int returnVal = fc.showOpenDialog(mediaFrame);
-	
-			        if (returnVal == JFileChooser.APPROVE_OPTION)
-			        {
-			        	String path = fc.getSelectedFile().getPath();
-			        	msc.setMediaPath(path);
-			        	browseButLbl.setText(path);
-			        	runBut.setEnabled(true);			        	
-			        	parentDirCb.setText(subDirText + " " + msc.getMediaPath() + File.separator + MediaSorterRunner.OUTPUT_FOLDER_NAME);
-			        }
+					msc.setUseSymbolicLinks(false);
+					symbLinkCb.setSelected(false);
+					symbLinkCb.setEnabled(false);
 				}
-			}
-		);
+				else
+				{
+					symbLinkCb.setEnabled(true);
+				}
+			}			
+		});		
 		
 		csvBrowse.addActionListener(new ActionListener()
 		{
@@ -162,23 +184,30 @@ public class MediaSortFrame extends JFrame
 			}
 		});
 		
-		JCheckBox sepYearDirCb = new JCheckBox(sepYearText);
 		sepYearDirCb.addItemListener(new ItemListener()
 		{
 			@Override
 			public void itemStateChanged(ItemEvent e) 
 			{
-				msc.setSepYear(e.getStateChange() == 1);				
+				msc.setSepYear(e.getStateChange() == ItemEvent.SELECTED);				
 			}
 		});
-		
 		
 		parentDirCb.addItemListener(new ItemListener()
 		{
 			@Override
 			public void itemStateChanged(ItemEvent e) 
 			{
-				msc.setCreateParentDir(e.getStateChange() == 1);				
+				msc.setCreateParentDir(e.getStateChange() == ItemEvent.SELECTED);				
+			}
+		});
+		
+		symbLinkCb.addItemListener(new ItemListener()
+		{
+			@Override
+			public void itemStateChanged(ItemEvent e) 
+			{
+				msc.setUseSymbolicLinks(e.getStateChange() == ItemEvent.SELECTED);				
 			}
 		});
 		
@@ -189,6 +218,9 @@ public class MediaSortFrame extends JFrame
 			{
 				new Thread(() -> {
 					runBut.setEnabled(false);
+					resBtn.setEnabled(false);
+					resBtn.setVisible(false);
+					
 					pb.setValue(0);
 					pb.setVisible(true);
 					
@@ -213,7 +245,6 @@ public class MediaSortFrame extends JFrame
 						runBut.setEnabled(true);
 					}
 				}).start();
-						
 			}
 		});
 		
@@ -223,7 +254,7 @@ public class MediaSortFrame extends JFrame
 			public void actionPerformed(ActionEvent e) 
 			{
 				Desktop desktop = Desktop.getDesktop();
-				File resFile = new File(msr.getIndexPath());
+				File resFile = new File(msr.getIndexPath().toUri());
 				if(resFile.exists())
 					try {
 						desktop.open(resFile);
@@ -231,12 +262,9 @@ public class MediaSortFrame extends JFrame
 						e1.printStackTrace();
 					} 
 			}
-		});		
+		});	
 		
-		//exit on window close
-		setDefaultCloseOperation(EXIT_ON_CLOSE);		
-		
-		JPanel jp = new JPanel();
+		JPanel jpMain = new JPanel();
 		JPanel jp1 = new JPanel();
 		JPanel jp2 = new JPanel();
 		JPanel jp3 = new JPanel();
@@ -250,40 +278,38 @@ public class MediaSortFrame extends JFrame
 		
 		jp2.setLayout(new GridLayout(1,2,10,10));
 		jp2.add(offsetLbl);
-		jp2.add(t1);
+		jp2.add(offsetSlider);
 		
 		jp3.setLayout(new GridLayout(1,2,10,10));
 		jp3.add(csvBrowse);
 		jp3.add(csvBrowseLbl);
 		
-		jp4.setLayout(new GridLayout(4,1,10,10));
+		jp4.setLayout(new GridLayout(5,1,10,10));
 		jp4.add(sepYearDirCb);
 		jp4.add(parentDirCb);
-		jp4.add(runBut);
-		jp4.add(resBtn);
+		jp4.add(symbLinkCb);
+		jp4.add(runBut);		
 		
-		pb.setValue(0);
-		pb.setStringPainted(true);
-		msc.setPb(pb);
 		jp5.add(pb);
 		
-		jp6.setLayout(new GridLayout(1,1));
-		PrintStream printStream = new PrintStream(new CustomOutputStream(outputLog));
-		System.setOut(printStream);
-		System.setErr(printStream);
-		jp6.add(scroll);	
+		jp6.setLayout(new GridLayout(2,1));		
+		jp6.add(scroll);
+		jp6.add(resBtn);
 		
-		jp.setLayout(new BoxLayout (jp, BoxLayout.Y_AXIS));
-		jp.add(jp1);
-		jp.add(jp2);
-		jp.add(jp3);
-		jp.add(jp4);
-		jp.add(jp5);
-		jp.add(jp6);
+		jpMain.setLayout(new BoxLayout (jpMain, BoxLayout.Y_AXIS));
+		jpMain.add(jp1);
+		jpMain.add(jp2);
+		jpMain.add(jp3);
+		jpMain.add(jp4);
+		jpMain.add(jp5);
+		jpMain.add(jp6);
 
-		add(jp);
+		add(jpMain);
 		
-		setSize(600,400);
+		setSize(600,800);
+		
+		//exit on window close
+		setDefaultCloseOperation(EXIT_ON_CLOSE);	
 		          
 		setVisible(true);//making the frame visible 
 	}

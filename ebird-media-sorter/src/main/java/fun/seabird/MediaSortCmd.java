@@ -11,8 +11,10 @@ public class MediaSortCmd
 	private String mediaPath;
 	private Long hrsOffset = 0l;
 	private File csvFile;
+	
 	private boolean sepYear = false;	
 	private boolean createParentDir = true;
+	private boolean useSymbolicLinks = false;
 	
 	public Long getHrsOffset() {
 		return hrsOffset;
@@ -49,6 +51,12 @@ public class MediaSortCmd
 	}
 	public void setCreateParentDir(boolean createParentDir) {
 		this.createParentDir = createParentDir;
+	}
+	public boolean isUseSymbolicLinks() {
+		return useSymbolicLinks;
+	}
+	public void setUseSymbolicLinks(boolean useSymbolicLinks) {
+		this.useSymbolicLinks = useSymbolicLinks;
 	}
 	
 }

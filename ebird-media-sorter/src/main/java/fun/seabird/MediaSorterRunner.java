@@ -9,6 +9,8 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
@@ -188,7 +190,7 @@ public class MediaSorterRunner
     
     private static boolean isEligibleMediaFile(File f)
     {
-    	if (f.isDirectory())
+    	if (f.isDirectory() || FileUtils.isSymlink(f))
 			return false;
 		
 		String fileName = f.getName();
@@ -203,8 +205,16 @@ public class MediaSorterRunner
 		
 		return true;
     }
+    
+    private void moveFile(File from,File to) throws IOException
+    {
+    	if (msc.isUseSymbolicLinks())
+			java.nio.file.Files.createSymbolicLink(Paths.get(to.getPath()),Paths.get(from.getPath()));
+		else	
+    		Files.move(from,to);
+    }
 	
-	private void checkMetadataAndMove(File f,String outputPath,Long hrsOffset,Set<String> subIds,boolean sepYearDir) throws IOException
+	private void checkMetadataAndMove(File f,Path outputPath,Long hrsOffset,Set<String> subIds,boolean sepYearDir) throws IOException
 	{
 		String fileName = f.getName();
 		String fileExt = Files.getFileExtension(fileName).toLowerCase();
@@ -335,17 +345,17 @@ public class MediaSorterRunner
 			{
 				e.printStackTrace();
 				System.out.println("Processing " + f.getPath());
-				Files.move(f,movedFile);			
+				moveFile(f,movedFile);			
 			}
 		}
 		else		
 		{
 			System.out.println("Processing " + f.getPath());
-			Files.move(f,movedFile);
+			moveFile(f,movedFile);
 		}
 	}	
 	
-	public String run() throws FileNotFoundException, IOException
+	public Path run() throws FileNotFoundException, IOException
 	{
 		if (msc.getCsvFile() != null)
 			parseCsv(msc.getCsvFile());		
@@ -354,8 +364,8 @@ public class MediaSorterRunner
 		
 		//make output directory inside the provided media folder
 		String outputFolderName = OUTPUT_FOLDER_NAME + "_" + new Date().getTime();
-		String outputPath = mediaPath + File.separator + outputFolderName;
-		File outputDir = new File(outputPath);
+		Path outputPath = Paths.get(mediaPath,outputFolderName);
+		File outputDir = new File(outputPath.toUri());
 		if (!outputDir.exists())
 			outputDir.mkdir();			
 		
@@ -382,36 +392,43 @@ public class MediaSorterRunner
 				pb.setValue((int) (((i++)/((double)numFiles))*100));
 		}
 		
-		//Move all files out of parent directory we created
+		//Move all files out of temp parent directory we created
 		if (!msc.isCreateParentDir())
 		{
 			System.out.println("Cleaning up...");
-			Iterable<File> traverser2 = Files.fileTraverser().depthFirstPreOrder(new File(outputPath));
+			Iterable<File> traverser2 = Files.fileTraverser().depthFirstPreOrder(outputDir);
 			for (File f:traverser2)	
 			{
 				if (!f.exists()) //if we move the directories, the files follow
 					continue;
 				
-				String newPath = StringUtils.remove(f.getAbsolutePath(),outputFolderName + "/");
+				String newPath = StringUtils.remove(f.getAbsolutePath(),outputFolderName + File.separator);
 				if (f.getAbsolutePath().equals(newPath)) //could be the output dir itself
 					continue;
 				
-				Files.move(f,new File(newPath));
+				File newDir = new File(newPath);
+				if (!newDir.exists())				
+					Files.move(f,newDir);
+				else
+					System.err.println("Directory" + newPath + " already exists! Check " + outputDir + " for results.");
 			}
 			outputDir.delete();
 		}
 		else
 		{
-			File finalOutputDir = new File (mediaPath + File.separator + OUTPUT_FOLDER_NAME);
-			FileUtils.deleteDirectory(finalOutputDir);			
-			outputDir.renameTo(finalOutputDir);
+			Path finalOutputPath = Paths.get(mediaPath,OUTPUT_FOLDER_NAME);
+			File finalOutputDir = new File (finalOutputPath.toUri());
+			if (finalOutputDir.exists())
+				System.err.println("Directory" + finalOutputPath + " already exists! Check " + outputDir + " for results.");
+			else			
+				outputDir.renameTo(finalOutputDir);
 		}
 		
-		String indexPath = null;
+		Path indexPath = null;
 		if (!subIds.isEmpty())
 		{
-			indexPath = mediaPath + File.separator + "checklistIndex_" + new Date().getTime() + ".csv";
-			FileWriter fw = new FileWriter(indexPath);		
+			indexPath = Paths.get(mediaPath,"checklistIndex_" + new Date().getTime() + ".csv");
+			FileWriter fw = new FileWriter(indexPath.toString());		
 			fw.write("Checklist Link,Date,Subnat1,County,Num Uploaded,Num Local\n");
 			for (String subId:subIds)
 			{

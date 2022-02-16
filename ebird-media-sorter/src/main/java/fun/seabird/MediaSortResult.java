@@ -1,14 +1,16 @@
 package fun.seabird;
 
+import java.nio.file.Path;
+
 public class MediaSortResult 
 {
-	private String indexPath;
+	private Path indexPath;
 
-	public String getIndexPath() {
+	public Path getIndexPath() {
 		return indexPath;
 	}
 
-	public void setIndexPath(String indexPath) {
+	public void setIndexPath(Path indexPath) {
 		this.indexPath = indexPath;
 	}
 }
