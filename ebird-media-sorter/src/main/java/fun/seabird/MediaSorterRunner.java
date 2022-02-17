@@ -127,63 +127,32 @@ public class MediaSorterRunner
 		System.out.println("Done!");
 	}	
 	
-    private static void changeDateTimeOrig(final File jpegImageFile, final File dst, String newDateTime)
-            throws IOException, ImageReadException, ImageWriteException {
+    private static void changeDateTimeOrig(File jpegImageFile, File dst, String newDateTime)
+            throws IOException, ImageReadException, ImageWriteException 
+    {
 
         try (FileOutputStream fos = new FileOutputStream(dst);
-                OutputStream os = new BufferedOutputStream(fos)) {
-
-            TiffOutputSet outputSet = null;
-
-            // note that metadata might be null if no metadata is found.
-            final ImageMetadata metadata = Imaging.getMetadata(jpegImageFile);
-            
+                OutputStream os = new BufferedOutputStream(fos)) 
+        {
+            ImageMetadata metadata = Imaging.getMetadata(jpegImageFile);            
             if (!(metadata instanceof JpegImageMetadata))
             	throw new ImageReadException("Can only modify EXIF of jpg files");
             
-            final JpegImageMetadata jpegMetadata = (JpegImageMetadata) metadata;          
-            final TiffImageMetadata exif = jpegMetadata.getExif();
+            JpegImageMetadata jpegMetadata = (JpegImageMetadata) metadata;          
+            TiffImageMetadata exif = jpegMetadata.getExif();
 
-            if (null != exif) {
-                // TiffImageMetadata class is immutable (read-only).
-                // TiffOutputSet class represents the Exif data to write.
-                //
-                // Usually, we want to update existing Exif metadata by
-                // changing
-                // the values of a few fields, or adding a field.
-                // In these cases, it is easiest to use getOutputSet() to
-                // start with a "copy" of the fields read from the image.
+            TiffOutputSet outputSet = null;
+            if (null != exif) {               
                 outputSet = exif.getOutputSet();
-            }
-            
-            // if file does not contain any exif metadata, we create an empty
-            // set of exif metadata. Otherwise, we keep all of the other
-            // existing tags.
+            }            
+          
             if (null == outputSet) {
                 outputSet = new TiffOutputSet();
             }
 
-            {
-                // Example of how to add a field/tag to the output set.
-                //
-                // Note that you should first remove the field/tag if it already
-                // exists in this directory, or you may end up with duplicate
-                // tags. See above.
-                //
-                // Certain fields/tags are expected in certain Exif directories;
-                // Others can occur in more than one directory (and often have a
-                // different meaning in different directories).
-                //
-                // TagInfo constants often contain a description of what
-                // directories are associated with a given tag.
-                //
-                final TiffOutputDirectory exifDirectory = outputSet.getOrCreateExifDirectory();
-                // make sure to remove old value if present (this method will
-                // not fail if the tag does not exist).
-                exifDirectory.removeField(ExifTagConstants.EXIF_TAG_DATE_TIME_ORIGINAL);
-                exifDirectory.add(ExifTagConstants.EXIF_TAG_DATE_TIME_ORIGINAL,newDateTime);
-            }
-
+            TiffOutputDirectory exifDirectory = outputSet.getOrCreateExifDirectory();                
+            exifDirectory.removeField(ExifTagConstants.EXIF_TAG_DATE_TIME_ORIGINAL);
+            exifDirectory.add(ExifTagConstants.EXIF_TAG_DATE_TIME_ORIGINAL,newDateTime);
             new ExifRewriter().updateExifMetadataLossless(jpegImageFile, os,outputSet);
         }
     }
@@ -410,7 +379,7 @@ public class MediaSorterRunner
 				if (!newDir.exists())				
 					Files.move(f,newDir);
 				else
-					System.err.println("Directory" + newPath + " already exists! Check " + outputDir + " for results.");
+					System.err.println("Directory " + newPath + " already exists! Check " + outputDir + " for results.");
 			}
 			outputDir.delete();
 		}
@@ -419,7 +388,7 @@ public class MediaSorterRunner
 			Path finalOutputPath = Paths.get(mediaPath,OUTPUT_FOLDER_NAME);
 			File finalOutputDir = new File (finalOutputPath.toUri());
 			if (finalOutputDir.exists())
-				System.err.println("Directory" + finalOutputPath + " already exists! Check " + outputDir + " for results.");
+				System.err.println("Directory " + finalOutputPath + " already exists! Check " + outputDir + " for results.");
 			else			
 				outputDir.renameTo(finalOutputDir);
 		}

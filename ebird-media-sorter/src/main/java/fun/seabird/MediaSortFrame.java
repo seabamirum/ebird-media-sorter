@@ -1,7 +1,7 @@
 package fun.seabird;
 
 import java.awt.Desktop;
-import java.awt.GridLayout;
+import java.awt.Dimension;
 import java.awt.HeadlessException;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -12,7 +12,6 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintStream;
 
-import javax.swing.BoxLayout;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JFileChooser;
@@ -21,6 +20,7 @@ import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JProgressBar;
 import javax.swing.JScrollPane;
+import javax.swing.JSeparator;
 import javax.swing.JSlider;
 import javax.swing.JTextArea;
 import javax.swing.event.ChangeEvent;
@@ -28,6 +28,8 @@ import javax.swing.event.ChangeListener;
 import javax.swing.filechooser.FileFilter;
 import javax.swing.text.BadLocationException;
 import javax.swing.text.Document;
+
+import net.miginfocom.swing.MigLayout;
 
 public class MediaSortFrame extends JFrame 
 {
@@ -37,14 +39,18 @@ public class MediaSortFrame extends JFrame
 	private static final long serialVersionUID = -960332919832074912L;	
 	
 	private static String titleText = "eBird Media Sorter";	
+	private static String introText = "Welcome! Choose your media directory, eBird CSV file, options, and press run.";	
 	private static String subDirText = "Create Subdirectory";
 	private static String browseBtnText = "Choose Media Directory";
 	private static String resBtnText = "See Results!";
-	private static String exifAdjText = "EXIF Adjustment (in hours)";
+	private static String exifAdjText = "EXIF Adjustment (0 hours)";
 	private static String csvBtnText = "Choose MyEBirdData CSV File";
 	private static String sepYearText = "Group Date Folders by Year";
 	private static String symbLinkText = "Generate Symbolic Links Instead of Moving Files"; 
 	private static String runBtnText = "Run"; 
+	
+	private static int FRAME_WIDTH = 650;
+	private static int FRAME_HEIGHT = 800;
 	
 	private class CsvFileFilter extends FileFilter
 	{
@@ -82,6 +88,8 @@ public class MediaSortFrame extends JFrame
 		final MediaSortCmd msc = new MediaSortCmd();
 		final MediaSortResult msr = new MediaSortResult();
 		
+		JLabel introLbl = new JLabel(introText);
+		
 		JButton browseBut = new JButton(browseBtnText);
 		JLabel browseButLbl = new JLabel();
 		
@@ -111,10 +119,11 @@ public class MediaSortFrame extends JFrame
 		//Log output
 		JTextArea outputLog = new JTextArea();
 		outputLog.setLineWrap(true);
-		outputLog.setEditable(false);		
+		outputLog.setEditable(false);
 		JScrollPane scroll = new JScrollPane (outputLog);
 	    scroll.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
 	    scroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+	    scroll.setPreferredSize(new Dimension(FRAME_WIDTH,FRAME_HEIGHT/3));
 	    PrintStream printStream = new PrintStream(new CustomOutputStream(outputLog));
 		System.setOut(printStream);
 		System.setErr(printStream);
@@ -157,9 +166,11 @@ public class MediaSortFrame extends JFrame
 					msc.setUseSymbolicLinks(false);
 					symbLinkCb.setSelected(false);
 					symbLinkCb.setEnabled(false);
+					offsetLbl.setText("EXIF Adjustment (" + offset + " hours)");
 				}
 				else
 				{
+					offsetLbl.setText(exifAdjText);
 					symbLinkCb.setEnabled(true);
 				}
 			}			
@@ -264,49 +275,30 @@ public class MediaSortFrame extends JFrame
 			}
 		});	
 		
-		JPanel jpMain = new JPanel();
-		JPanel jp1 = new JPanel();
-		JPanel jp2 = new JPanel();
-		JPanel jp3 = new JPanel();
-		JPanel jp4 = new JPanel();
-		JPanel jp5 = new JPanel();
-		JPanel jp6 = new JPanel();
+		JPanel jp = new JPanel(new MigLayout(
+				  "", // Layout Constraints
+				 "[]20[]", // Column constraints
+				 "[]20[]"));
+	
+		jp.add(introLbl,"span,wrap");
+		jp.add(browseBut);
+		jp.add(browseButLbl,"wrap");
+		jp.add(offsetSlider);
+		jp.add(offsetLbl,"wrap");
+		jp.add(csvBrowse);
+		jp.add(csvBrowseLbl,"wrap");
+		jp.add(sepYearDirCb,"wrap");
+		jp.add(parentDirCb,"wrap");
+		jp.add(symbLinkCb,"wrap");
+		jp.add(new JSeparator(),"span,grow,wrap");
+		jp.add(runBut,"wrap");	
+		jp.add(pb,"wrap");		
+		jp.add(scroll,"span,grow");
+		jp.add(resBtn);		
 		
-		jp1.setLayout(new GridLayout(1,2,10,10));
-		jp1.add(browseBut);
-		jp1.add(browseButLbl);
+		add(jp);
 		
-		jp2.setLayout(new GridLayout(1,2,10,10));
-		jp2.add(offsetLbl);
-		jp2.add(offsetSlider);
-		
-		jp3.setLayout(new GridLayout(1,2,10,10));
-		jp3.add(csvBrowse);
-		jp3.add(csvBrowseLbl);
-		
-		jp4.setLayout(new GridLayout(5,1,10,10));
-		jp4.add(sepYearDirCb);
-		jp4.add(parentDirCb);
-		jp4.add(symbLinkCb);
-		jp4.add(runBut);		
-		
-		jp5.add(pb);
-		
-		jp6.setLayout(new GridLayout(2,1));		
-		jp6.add(scroll);
-		jp6.add(resBtn);
-		
-		jpMain.setLayout(new BoxLayout (jpMain, BoxLayout.Y_AXIS));
-		jpMain.add(jp1);
-		jpMain.add(jp2);
-		jpMain.add(jp3);
-		jpMain.add(jp4);
-		jpMain.add(jp5);
-		jpMain.add(jp6);
-
-		add(jpMain);
-		
-		setSize(600,800);
+		setSize(FRAME_WIDTH,FRAME_HEIGHT);
 		
 		//exit on window close
 		setDefaultCloseOperation(EXIT_ON_CLOSE);	
