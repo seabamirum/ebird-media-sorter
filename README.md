@@ -11,3 +11,11 @@ Program to sort photos, audio, and video on the file system by date and eBird ch
 WARNING: This program by default moves any photo (jpg,jpeg,png,RAW), video (mov,m4f,mp4), or audio (wav,mp3,m4a) file to an 'ebird/YYYY-MM-DD' subdirectory  whether it finds a checklistId match or not. If a creation date cannot be read from EXIF, file last modified date is used. In most cases, it is convenient to have files organized by date in this way. But if you have already grouped photos by region, trip, etc. you may want to use the checkbox to generate symbolic (shorcut) link files instead. It is recommended to start with a small media directory first to understand the process. 
 
 NOTE: Any non-media file will be ignored by this program
+
+Screenshot of program:
+
+![Screenshot_20220217_113808](https://user-images.githubusercontent.com/3449269/154528398-425e073c-b450-43d8-8f1a-2ab8fa6118b7.png)
+
+Generated CSV file:
+
+![Screenshot_20220217_113905](https://user-images.githubusercontent.com/3449269/154528416-0e588227-f45b-4684-ae19-07b61620a745.png)
