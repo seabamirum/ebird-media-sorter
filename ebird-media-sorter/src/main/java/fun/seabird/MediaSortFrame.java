@@ -123,10 +123,7 @@ public class MediaSortFrame extends JFrame
 		JScrollPane scroll = new JScrollPane (outputLog);
 	    scroll.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
 	    scroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
-	    scroll.setPreferredSize(new Dimension(FRAME_WIDTH,FRAME_HEIGHT/3));
-	    PrintStream printStream = new PrintStream(new CustomOutputStream(outputLog));
-		System.setOut(printStream);
-		System.setErr(printStream);
+	    scroll.setPreferredSize(new Dimension(FRAME_WIDTH,FRAME_HEIGHT/3));	  
 		
 		JButton resBtn = new JButton(resBtnText);
 		resBtn.setEnabled(false);
@@ -248,6 +245,7 @@ public class MediaSortFrame extends JFrame
 							resBtn.setEnabled(true);
 							resBtn.setVisible(true);
 						}
+						pb.setValue(100);
 					} catch (IOException e1) {
 						e1.printStackTrace();
 					}
@@ -277,13 +275,13 @@ public class MediaSortFrame extends JFrame
 		
 		JPanel jp = new JPanel(new MigLayout(
 				  "", // Layout Constraints
-				 "[]20[]", // Column constraints
+				 "[]", // Column constraints
 				 "[]20[]"));
 	
 		jp.add(introLbl,"span,wrap");
 		jp.add(browseBut);
 		jp.add(browseButLbl,"wrap");
-		jp.add(offsetSlider);
+		jp.add(offsetSlider,"wrap");
 		jp.add(offsetLbl,"wrap");
 		jp.add(csvBrowse);
 		jp.add(csvBrowseLbl,"wrap");
@@ -301,10 +299,14 @@ public class MediaSortFrame extends JFrame
 		setSize(FRAME_WIDTH,FRAME_HEIGHT);
 		
 		//exit on window close
-		setDefaultCloseOperation(EXIT_ON_CLOSE);	
+		setDefaultCloseOperation(EXIT_ON_CLOSE);
+		
+		//redirect system OUT to GUI
+		PrintStream printStream = new PrintStream(new CustomOutputStream(outputLog));
+		System.setOut(printStream);
+		System.setErr(printStream);
 		          
 		setVisible(true);//making the frame visible 
 	}
-	
 
 }

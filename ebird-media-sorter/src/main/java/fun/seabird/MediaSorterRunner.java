@@ -13,7 +13,6 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -39,15 +38,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.supercsv.io.CsvListReader;
 import org.supercsv.prefs.CsvPreference;
 
-import com.drew.imaging.ImageMetadataReader;
-import com.drew.imaging.ImageProcessingException;
-import com.drew.metadata.Directory;
-import com.drew.metadata.Metadata;
-import com.drew.metadata.exif.ExifDirectoryBase;
-import com.drew.metadata.exif.ExifSubIFDDirectory;
-import com.drew.metadata.mov.media.QuickTimeMediaDirectory;
-import com.drew.metadata.mp4.Mp4Directory;
-import com.drew.metadata.wav.WavDirectory;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Range;
 import com.google.common.collect.RangeMap;
@@ -58,15 +49,19 @@ public class MediaSorterRunner
 {	
 	private static final DateTimeFormatter csvDtf = DateTimeFormatter.ofPattern("yyyy-MM-dd hh:mm a");
 	private static final DateTimeFormatter imageDtf = DateTimeFormatter.ofPattern("yyyy:MM:dd HH:mm:ss");
-	private static final DateTimeFormatter timezoneDtf = DateTimeFormatter.ofPattern("EEE MMM dd HH:mm:ss zzz yyyy");
 	private static final DateTimeFormatter folderDtf = DateTimeFormatter.ofPattern("yyyy-MM-dd");
 	
-	private static final Set<String> audioExtensions = ImmutableSet.of("wav","mp3","m4a");
-	private static final Set<String> videoExtensions = ImmutableSet.of("mov","m4v","mp4");
-	private static final Set<String> imageExtensions = ImmutableSet.of("jpg","jpeg","png","crx","crw","cr2","cr3","crm","arw","nef","orf","raf");	
+	public static final Set<String> audioExtensions = ImmutableSet.of("wav","mp3","m4a");
+	public static final Set<String> videoExtensions = ImmutableSet.of("mov","m4v","mp4");
+	public static final Set<String> imageExtensions = ImmutableSet.of("jpg","jpeg","png","crx","crw","cr2","cr3","crm","arw","nef","orf","raf");	
 	
 	static final String OUTPUT_FOLDER_NAME = "ebird";
 	
+	private final List<CreationDateProvider> cdpList = ImmutableList.of
+			(new ExifCreationDateProvider(),
+			new FileNameCreationDateProvider(),
+			new FileModifiedCreationDateProvider(),
+			new FakeCreationDateProvider());
 	private final RangeMap<LocalDateTime, String> rangeMap = TreeRangeMap.create();
 	private final Map<String,SubStats> checklistStatsMap = new TreeMap<>();	
 	private final MediaSortCmd msc;
@@ -185,83 +180,12 @@ public class MediaSorterRunner
 	
 	private void checkMetadataAndMove(File f,Path outputPath,Long hrsOffset,Set<String> subIds,boolean sepYearDir) throws IOException
 	{
-		String fileName = f.getName();
-		String fileExt = Files.getFileExtension(fileName).toLowerCase();
-		
-		boolean isImage = imageExtensions.contains(fileExt);
-		boolean isAudio= audioExtensions.contains(fileExt);
-		boolean isVideo = videoExtensions.contains(fileExt);
-		
-		Metadata metadata = null;
-		try(FileInputStream mediaStream = new FileInputStream(f))
-		{
-			try {
-				metadata = ImageMetadataReader.readMetadata(mediaStream);		
-			}
-			catch(ImageProcessingException ipe)
-			{
-				System.err.println("Error reading " + fileName + ": " + ipe);
-			}
-			catch(StringIndexOutOfBoundsException sobe)
-			{
-				System.err.println("Error reading " + fileName + ": " + sobe);
-			}
-		}
-		
-		Directory directory = null; 
-		String dateTimeOrigStr = null;
-		DateTimeFormatter dtf = isImage ? imageDtf : timezoneDtf;
-		int creationTimeTag = ExifDirectoryBase.TAG_DATETIME_ORIGINAL;
-		if (metadata != null)
-		{
-			if (isImage)
-				directory = metadata.getFirstDirectoryOfType(ExifSubIFDDirectory.class);
-			else if (isVideo)
-			{
-				if (fileExt.equals("mp4"))
-					directory = metadata.getFirstDirectoryOfType(Mp4Directory.class);
-				else if (fileExt.equals("mov"))
-					directory = metadata.getFirstDirectoryOfType(QuickTimeMediaDirectory.class);				
-			}
-			else if (isAudio && fileExt.equals("wav"))
-				directory = metadata.getFirstDirectoryOfType(WavDirectory.class);
-			
-			if (directory != null)
-			{
-		        if (isVideo)
-		        	if (fileExt.equals("mp4"))
-			        	creationTimeTag = Mp4Directory.TAG_CREATION_TIME;
-					else if (fileExt.equals("mov"))
-						creationTimeTag = QuickTimeMediaDirectory.TAG_CREATION_TIME;
-		        else if (isAudio)
-		        	creationTimeTag = WavDirectory.TAG_DATE_CREATED;	
-		        
-	        	dateTimeOrigStr = directory.getString(creationTimeTag);
-			}
-		}
-        
 		LocalDateTime mediaTime = null;
-		if (dateTimeOrigStr == null)
-		{	//use file last modified date if we can't get anything from EXIF
-			dateTimeOrigStr = new Date(f.lastModified()).toString();
-			if (dateTimeOrigStr == null)
-				return;
-			mediaTime = LocalDateTime.parse(dateTimeOrigStr,timezoneDtf);
-		}
-		else
+		for (CreationDateProvider cdp:cdpList)
 		{
-			try
-			{
-				mediaTime = LocalDateTime.parse(dateTimeOrigStr,dtf);					
-			}
-			catch (DateTimeParseException dtpe) 
-			{
-				System.err.println("Can't parse creation time for " + fileName + ": " + dateTimeOrigStr);
-				return;
-			}
-			
-			if (hrsOffset != 0l)
-				mediaTime = mediaTime.plusHours(hrsOffset);
+			mediaTime = cdp.findCreationDate(f,hrsOffset);
+			if (mediaTime != null)
+				break;
 		}
 
 		String dateDirPath;
@@ -300,12 +224,12 @@ public class MediaSorterRunner
 		else
 			movedFile = new File(dateDirPath + File.separator + f.getName());
 		
-		
-		if (hrsOffset != 0l)
+		boolean isImage = imageExtensions.contains(Files.getFileExtension(f.getName()).toLowerCase());
+		if (hrsOffset != 0l && isImage)
 		{
 			try 
 			{
-				String newDateTime = mediaTime.format(dtf);
+				String newDateTime = mediaTime.format(imageDtf);
 				System.out.println("Processing and changing EXIF date of " + f.getPath());
 				changeDateTimeOrig(f,movedFile,newDateTime);
 				f.delete();
@@ -347,13 +271,19 @@ public class MediaSorterRunner
 		{
 			if (isEligibleMediaFile(f))
 				eligibleFiles.add(f);
-		}		
+		}	
 		
-		System.out.println("Searching " + mediaPath + " and subdirectories for media files...");
+		if (eligibleFiles.isEmpty())
+		{
+			System.out.println("No eligible media files found.");
+			return null;
+		}
+		
 		boolean sepYearDir = msc.isSepYear();
 		int numFiles = eligibleFiles.size();
 		int i=1;
 		JProgressBar pb = msc.getPb();
+		System.out.println("Processing " + numFiles + " files in " + mediaPath + " and subdirectories...");
 		for (File f:eligibleFiles)
 		{			
 			checkMetadataAndMove(f,outputPath,hrsOffset,subIds,sepYearDir);
@@ -410,10 +340,7 @@ public class MediaSorterRunner
 				fw.write(ss.getNumAssetsLocal() + "\n");
 			}
 			fw.close();
-		}
-		
-		if (pb != null)
-			pb.setValue(100);
+		}	
 		
 		System.out.println("ALL DONE! :-)");
 		return indexPath;
