@@ -18,7 +18,7 @@ public class FileNameCreationDateProvider implements CreationDateProvider
 		String fileName = f.getName();
 		String dateTimeOrigStr = StringUtils.left(fileName,13);
 		
-		if (StringUtils.containsNone(dateTimeOrigStr,'-','_'))
+		if (!StringUtils.startsWithAny(dateTimeOrigStr,"1","2") || StringUtils.containsNone(dateTimeOrigStr,'-','_'))
 			return null;
 		
 		if (StringUtils.countMatches(dateTimeOrigStr,"-") == 2)

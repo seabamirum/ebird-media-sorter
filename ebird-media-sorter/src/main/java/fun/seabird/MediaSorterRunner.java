@@ -27,6 +27,7 @@ import org.apache.commons.imaging.ImageReadException;
 import org.apache.commons.imaging.ImageWriteException;
 import org.apache.commons.imaging.Imaging;
 import org.apache.commons.imaging.common.ImageMetadata;
+import org.apache.commons.imaging.common.ImageMetadata.ImageMetadataItem;
 import org.apache.commons.imaging.formats.jpeg.JpegImageMetadata;
 import org.apache.commons.imaging.formats.jpeg.exif.ExifRewriter;
 import org.apache.commons.imaging.formats.tiff.TiffImageMetadata;
@@ -122,18 +123,42 @@ public class MediaSorterRunner
 		System.out.println("Done!");
 	}	
 	
-    private static void changeDateTimeOrig(File jpegImageFile, File dst, String newDateTime)
-            throws IOException, ImageReadException, ImageWriteException 
+    /**
+     * @param jpegImageFile
+     * @param dst
+     * @param newDateTime
+     * @return true if EXIF date successfully changed
+     * @throws FileNotFoundException
+     * @throws IOException
+     */
+    private static boolean changeDateTimeOrig(File jpegImageFile, File dst, String newDateTime) throws FileNotFoundException, IOException
     {
-
         try (FileOutputStream fos = new FileOutputStream(dst);
                 OutputStream os = new BufferedOutputStream(fos)) 
         {
-            ImageMetadata metadata = Imaging.getMetadata(jpegImageFile);            
+            ImageMetadata metadata;
+			try {
+				metadata = Imaging.getMetadata(jpegImageFile);
+			} catch (ImageReadException | IOException e) 
+			{
+				e.printStackTrace();
+				return false;
+			}
+			
             if (!(metadata instanceof JpegImageMetadata))
-            	throw new ImageReadException("Can only modify EXIF of jpg files");
+            	return false;
             
-            JpegImageMetadata jpegMetadata = (JpegImageMetadata) metadata;          
+            JpegImageMetadata jpegMetadata = (JpegImageMetadata) metadata;   
+            
+            //Don't adjust EXIF offset for mobile phones
+            List<ImageMetadataItem> items = jpegMetadata.getItems();
+            for (ImageMetadataItem item:items)
+            {
+            	String itemStr = item.toString();
+            	if (StringUtils.contains(itemStr,"Make") && StringUtils.containsAny(itemStr,"Apple","Google"))
+            		return false;
+            }
+                        
             TiffImageMetadata exif = jpegMetadata.getExif();
 
             TiffOutputSet outputSet = null;
@@ -148,8 +173,15 @@ public class MediaSorterRunner
             TiffOutputDirectory exifDirectory = outputSet.getOrCreateExifDirectory();                
             exifDirectory.removeField(ExifTagConstants.EXIF_TAG_DATE_TIME_ORIGINAL);
             exifDirectory.add(ExifTagConstants.EXIF_TAG_DATE_TIME_ORIGINAL,newDateTime);
-            new ExifRewriter().updateExifMetadataLossless(jpegImageFile, os,outputSet);
-        }
+            new ExifRewriter().updateExifMetadataLossless(jpegImageFile, os,outputSet);            
+        } 
+        catch (ImageWriteException | ImageReadException e) 
+        {
+			e.printStackTrace();
+			return false;
+		}
+        
+        return true;
     }
     
     private static boolean isEligibleMediaFile(File f)
@@ -225,27 +257,20 @@ public class MediaSorterRunner
 			movedFile = new File(dateDirPath + File.separator + f.getName());
 		
 		boolean isImage = imageExtensions.contains(Files.getFileExtension(f.getName()).toLowerCase());
+		System.out.println("Processing " + f.getPath());
 		if (hrsOffset != 0l && isImage)
 		{
-			try 
+			String newDateTime = mediaTime.format(imageDtf);			
+			if (changeDateTimeOrig(f,movedFile,newDateTime))
 			{
-				String newDateTime = mediaTime.format(imageDtf);
-				System.out.println("Processing and changing EXIF date of " + f.getPath());
-				changeDateTimeOrig(f,movedFile,newDateTime);
+				System.out.println("Adjusted EXIF date of " + f.getPath() + " to " + newDateTime);
 				f.delete();
-			} 
-			catch (Exception e)
-			{
-				e.printStackTrace();
-				System.out.println("Processing " + f.getPath());
-				moveFile(f,movedFile);			
 			}
+			else
+				moveFile(f,movedFile);
 		}
 		else		
-		{
-			System.out.println("Processing " + f.getPath());
 			moveFile(f,movedFile);
-		}
 	}	
 	
 	public Path run() throws FileNotFoundException, IOException
