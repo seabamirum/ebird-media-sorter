@@ -61,8 +61,7 @@ public class MediaSorterRunner
 	private final List<CreationDateProvider> cdpList = ImmutableList.of
 			(new ExifCreationDateProvider(),
 			new FileNameCreationDateProvider(),
-			new FileModifiedCreationDateProvider(),
-			new FakeCreationDateProvider());
+			new FileModifiedCreationDateProvider());
 	private final RangeMap<LocalDateTime, String> rangeMap = TreeRangeMap.create();
 	private final Map<String,SubStats> checklistStatsMap = new TreeMap<>();	
 	private final MediaSortCmd msc;
