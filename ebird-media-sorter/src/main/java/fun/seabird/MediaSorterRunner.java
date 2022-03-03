@@ -205,8 +205,15 @@ public class MediaSorterRunner
     {
     	if (msc.isUseSymbolicLinks())
 			java.nio.file.Files.createSymbolicLink(Paths.get(to.getPath()),Paths.get(from.getPath()));
-		else	
-    		Files.move(from,to);
+		else
+		{
+			if (to.exists())
+			{
+				System.err.println(to.getPath() + " already exists!! Source file left in original location.");
+				return;
+			}
+			Files.move(from, to);
+		}
     }
 	
 	private void checkMetadataAndMove(File f,Path outputPath,Long hrsOffset,Set<String> subIds,boolean sepYearDir) throws IOException
