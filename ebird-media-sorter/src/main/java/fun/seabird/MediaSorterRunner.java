@@ -132,10 +132,7 @@ public class MediaSorterRunner
      */
     private static boolean changeDateTimeOrig(File jpegImageFile, File dst, String newDateTime) throws FileNotFoundException, IOException
     {
-        try (FileOutputStream fos = new FileOutputStream(dst);
-                OutputStream os = new BufferedOutputStream(fos)) 
-        {
-            ImageMetadata metadata;
+    	 ImageMetadata metadata;
 			try {
 				metadata = Imaging.getMetadata(jpegImageFile);
 			} catch (ImageReadException | IOException e) 
@@ -144,20 +141,23 @@ public class MediaSorterRunner
 				return false;
 			}
 			
-            if (!(metadata instanceof JpegImageMetadata))
-            	return false;
-            
-            JpegImageMetadata jpegMetadata = (JpegImageMetadata) metadata;   
-            
-            //Don't adjust EXIF offset for mobile phones
-            List<ImageMetadataItem> items = jpegMetadata.getItems();
-            for (ImageMetadataItem item:items)
-            {
-            	String itemStr = item.toString();
-            	if (StringUtils.contains(itemStr,"Make") && StringUtils.containsAny(itemStr,"Apple","Google"))
-            		return false;
-            }
-                        
+         if (!(metadata instanceof JpegImageMetadata))
+         	return false;
+         
+         JpegImageMetadata jpegMetadata = (JpegImageMetadata) metadata;   
+         
+         //Don't adjust EXIF offset for mobile phones
+         List<ImageMetadataItem> items = jpegMetadata.getItems();
+         for (ImageMetadataItem item:items)
+         {
+         	String itemStr = item.toString();
+         	if (StringUtils.contains(itemStr,"Make") && StringUtils.containsAny(itemStr,"Apple","Google"))
+         		return false;
+         }
+    	
+        try (FileOutputStream fos = new FileOutputStream(dst);
+                OutputStream os = new BufferedOutputStream(fos)) 
+        {          
             TiffImageMetadata exif = jpegMetadata.getExif();
 
             TiffOutputSet outputSet = null;
