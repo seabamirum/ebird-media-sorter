@@ -120,17 +120,13 @@ public class MediaSorterRunner
 			}
 		}	
 		System.out.println("Done!");
-	}	
+	}
 	
-    /**
-     * @param jpegImageFile
-     * @param dst
-     * @param newDateTime
-     * @return true if EXIF date successfully changed
-     * @throws FileNotFoundException
-     * @throws IOException
-     */
-    private static boolean changeDateTimeOrig(File jpegImageFile, File dst, String newDateTime) throws FileNotFoundException, IOException
+	/**
+	 * @param jpegImageFile
+	 * @return NULL if not an image or image is from an Apple or Google device--the metadata otherwise
+	 */
+	public static JpegImageMetadata shouldAdjustExif(File jpegImageFile)
     {
     	 ImageMetadata metadata;
 			try {
@@ -138,11 +134,11 @@ public class MediaSorterRunner
 			} catch (ImageReadException | IOException e) 
 			{
 				e.printStackTrace();
-				return false;
+				return null;
 			}
 			
          if (!(metadata instanceof JpegImageMetadata))
-         	return false;
+         	return null;
          
          JpegImageMetadata jpegMetadata = (JpegImageMetadata) metadata;   
          
@@ -152,8 +148,25 @@ public class MediaSorterRunner
          {
          	String itemStr = item.toString();
          	if (StringUtils.contains(itemStr,"Make") && StringUtils.containsAny(itemStr,"Apple","Google"))
-         		return false;
+         		return null;
          }
+         
+         return jpegMetadata;
+    }
+	
+    /**
+     * @param jpegImageFile
+     * @param dst
+     * @param newDateTime
+     * @return true if EXIF date successfully changed
+     * @throws FileNotFoundException
+     * @throws IOException
+     */
+    private static boolean changeDateTimeOrig(File jpegImageFile,File dst, String newDateTime) throws FileNotFoundException, IOException
+    {
+    	JpegImageMetadata jpegMetadata = shouldAdjustExif(jpegImageFile);
+    	if (jpegMetadata == null)
+    		return false;
     	
         try (FileOutputStream fos = new FileOutputStream(dst);
                 OutputStream os = new BufferedOutputStream(fos)) 

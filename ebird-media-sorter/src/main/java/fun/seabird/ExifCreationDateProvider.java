@@ -78,6 +78,9 @@ public class ExifCreationDateProvider implements CreationDateProvider
 			}
 		}
 		
+		if (!isImage || hrsOffset == 0l || MediaSorterRunner.shouldAdjustExif(f) == null)
+			return parseTime(dateTimeOrigStr,dtf);
+		
 		return parseTime(dateTimeOrigStr,dtf,hrsOffset);
 	}
 }
