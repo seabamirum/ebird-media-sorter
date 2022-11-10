@@ -46,6 +46,8 @@ import com.google.common.collect.RangeMap;
 import com.google.common.collect.TreeRangeMap;
 import com.google.common.io.Files;
 
+import fun.seabird.MediaSortCmd.FolderGroup;
+
 public class MediaSorterRunner 
 {	
 	private static final DateTimeFormatter csvDtf = DateTimeFormatter.ofPattern("yyyy-MM-dd hh:mm a");
@@ -57,6 +59,9 @@ public class MediaSorterRunner
 	public static final Set<String> imageExtensions = ImmutableSet.of("jpg","jpeg","png","crx","crw","cr2","cr3","crm","arw","nef","orf","raf");	
 	
 	static final String OUTPUT_FOLDER_NAME = "ebird";
+	
+	final String[] invalidChars = new String[] {" ",":",",",".","/","\\"};
+	final String[] validChars = new String[] {"-","--","-","-","-","-"};
 	
 	private final List<CreationDateProvider> cdpList = ImmutableList.of
 			(new ExifCreationDateProvider(),
@@ -99,6 +104,7 @@ public class MediaSorterRunner
 				String obsDtStr = values.get(11);
 				String subnational1Code = values.get(5);
 				String county = values.get(6);
+				String locName = values.get(8);
 				
 				LocalDateTime subBeginTime = LocalDateTime.parse(obsDtStr + " " + obsTimeStr,csvDtf);				
 				LocalDateTime subEndTime = subBeginTime.plusMinutes(duration);
@@ -106,7 +112,7 @@ public class MediaSorterRunner
 				rangeMap.put(Range.closed(subBeginTime,subEndTime),subId);
 				
 				if (!checklistStatsMap.containsKey(subId))				
-					checklistStatsMap.put(subId,new SubStats(subBeginTime,subnational1Code,county));				
+					checklistStatsMap.put(subId,new SubStats(subBeginTime,subnational1Code,county,locName));				
 				
 				int numUploaded = 0;
 				if (values.size() > 22)
@@ -229,7 +235,7 @@ public class MediaSorterRunner
 		}
     }
 	
-	private void checkMetadataAndMove(File f,Path outputPath,Long hrsOffset,Set<String> subIds,boolean sepYearDir) throws IOException
+	private void checkMetadataAndMove(File f,Path outputPath,Long hrsOffset,Set<String> subIds,boolean sepYearDir,FolderGroup folderGroup) throws IOException
 	{
 		LocalDateTime mediaTime = null;
 		for (CreationDateProvider cdp:cdpList)
@@ -239,41 +245,84 @@ public class MediaSorterRunner
 				break;
 		}
 
-		String dateDirPath;
+		String parentFolderPath = outputPath.toString();
 		if (sepYearDir)
 		{
-			String yearDirPath = outputPath + File.separator + mediaTime.getYear();
-			File yearDir = new File(yearDirPath);
+			parentFolderPath = parentFolderPath + File.separator + mediaTime.getYear();
+			File yearDir = new File(parentFolderPath);
 			if (!yearDir.exists())
 				yearDir.mkdir();
-			
-			dateDirPath = yearDirPath + File.separator + mediaTime.format(folderDtf);
-		}	
-		else
-			dateDirPath = outputPath + File.separator + mediaTime.format(folderDtf);
-		
-		File dateDir = new File(dateDirPath);
-		if (!dateDir.exists())
-			dateDir.mkdir();
+		}		
 		
 		String subId = null;
 		if (mediaTime != null)					
 			subId =	rangeMap.get(mediaTime);	
 		File movedFile;
+		
+		String mediaDateStr = mediaTime.format(folderDtf);
+		
 		if (subId != null)
 		{
-			String subIdPath = dateDirPath + File.separator + subId;
-			File subIdDir = new File(subIdPath);
+			SubStats ss = checklistStatsMap.get(subId);
+			
+			String locNameAbbrev = StringUtils.abbreviate(ss.getLocName(),"",40);
+			locNameAbbrev = StringUtils.replaceEach(locNameAbbrev,invalidChars,validChars);
+			
+			if (FolderGroup.location == folderGroup)
+			{
+				File sn1 = new File(parentFolderPath + File.separator + ss.getSubnational1Code());
+				if (!sn1.exists())
+					sn1.mkdir();
+				
+				parentFolderPath = sn1.getPath();				
+				if (ss.getCounty() != null)
+				{
+					File sn2 = new File(sn1.getPath() + File.separator + ss.getCounty());
+					if (!sn2.exists())
+						sn2.mkdir();
+					
+					parentFolderPath = sn2.getPath();
+				}
+				
+				parentFolderPath = parentFolderPath + File.separator + locNameAbbrev;
+				File locDir = new File(parentFolderPath);
+				if (!locDir.exists())
+					locDir.mkdir();				
+			}
+			else if (FolderGroup.date == folderGroup)
+			{
+				parentFolderPath = parentFolderPath + File.separator + mediaDateStr;
+				File parentFolder = new File(parentFolderPath);
+				if (!parentFolder.exists())
+					parentFolder.mkdir();	
+			}			
+			
+			String folderLocInfo = "";
+			if (FolderGroup.date == folderGroup)
+				folderLocInfo = ss.getSubnational1Code() + "_" + ss.getCounty() + "_" + locNameAbbrev;
+			else if (FolderGroup.location == folderGroup)
+				folderLocInfo = mediaDateStr;
+			
+			String folderName = folderLocInfo + "_" + subId;			
+			String folderPath = parentFolderPath + File.separator + folderName;
+			File subIdDir = new File(folderPath);
 			if (!subIdDir.exists())
 				subIdDir.mkdir();
 			
-			movedFile = new File(subIdPath + File.separator + f.getName());
+			movedFile = new File(folderPath + File.separator + f.getName());
 			
 			subIds.add(subId);
-			checklistStatsMap.get(subId).incNumAssetsLocal();
+			ss.incNumAssetsLocal();
 		}
 		else
-			movedFile = new File(dateDirPath + File.separator + f.getName());
+		{
+			parentFolderPath = parentFolderPath + File.separator + mediaDateStr;
+			File dateDir = new File(parentFolderPath);
+			if (!dateDir.exists())
+				dateDir.mkdir();
+			
+			movedFile = new File(parentFolderPath + File.separator + f.getName());
+		}
 		
 		boolean isImage = imageExtensions.contains(Files.getFileExtension(f.getName()).toLowerCase());
 		System.out.println("Processing " + f.getPath());
@@ -311,10 +360,18 @@ public class MediaSorterRunner
 		Iterable<File> traverser = Files.fileTraverser().depthFirstPreOrder(new File(mediaPath));
 		
 		List<File> eligibleFiles = new ArrayList<>();
+		System.out.println("Analyzing files...");
+		int i=0;
 		for (File f:traverser)
 		{
 			if (isEligibleMediaFile(f))
+			{
 				eligibleFiles.add(f);
+				i++;
+				
+				if (i%100==0)
+					System.out.println("Added 100 files to queue (" + i + " total)...");
+			}
 		}	
 		
 		if (eligibleFiles.isEmpty())
@@ -325,12 +382,12 @@ public class MediaSorterRunner
 		
 		boolean sepYearDir = msc.isSepYear();
 		int numFiles = eligibleFiles.size();
-		int i=1;
+		i=1;
 		JProgressBar pb = msc.getPb();
 		System.out.println("Processing " + numFiles + " files in " + mediaPath + " and subdirectories...");
 		for (File f:eligibleFiles)
-		{			
-			checkMetadataAndMove(f,outputPath,hrsOffset,subIds,sepYearDir);
+		{
+			checkMetadataAndMove(f,outputPath,hrsOffset,subIds,sepYearDir,msc.getFolderGroup());
 			if (pb != null)
 				pb.setValue((int) (((i++)/((double)numFiles))*100));
 		}

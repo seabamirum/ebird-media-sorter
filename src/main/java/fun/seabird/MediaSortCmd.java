@@ -15,6 +15,9 @@ public class MediaSortCmd
 	private boolean sepYear = false;	
 	private boolean createParentDir = true;
 	private boolean useSymbolicLinks = false;
+	private FolderGroup folderGroup = FolderGroup.date;
+	
+	enum FolderGroup {location,date}
 	
 	public Long getHrsOffset() {
 		return hrsOffset;
@@ -57,6 +60,12 @@ public class MediaSortCmd
 	}
 	public void setUseSymbolicLinks(boolean useSymbolicLinks) {
 		this.useSymbolicLinks = useSymbolicLinks;
+	}
+	public FolderGroup getFolderGroup() {
+		return folderGroup;
+	}
+	public void setFolderGroup(FolderGroup folderGroup) {
+		this.folderGroup = folderGroup;
 	}
 	
 }

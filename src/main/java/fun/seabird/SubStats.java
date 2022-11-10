@@ -10,15 +10,17 @@ public class SubStats
 	private final LocalDateTime date;
 	private final String subnational1Code;
 	private final String county;
+	private final String locName;
 
 	private int numAssetsUploaded = 0;
 	private int numAssetsLocal = 0;		
 
-	public SubStats(LocalDateTime date, String subnational1Code, String county) {
+	public SubStats(LocalDateTime date, String subnational1Code, String county,String locName) {
 		super();
 		this.date = date;
 		this.subnational1Code = subnational1Code;
 		this.county = county;
+		this.locName = locName;
 	}
 
 	public Integer getNumAssetsLocal() {
@@ -51,5 +53,9 @@ public class SubStats
 
 	public String getCounty() {
 		return county;
+	}
+
+	public String getLocName() {
+		return locName;
 	}
 }

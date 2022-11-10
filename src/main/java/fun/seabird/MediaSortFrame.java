@@ -29,6 +29,7 @@ import javax.swing.filechooser.FileFilter;
 import javax.swing.text.BadLocationException;
 import javax.swing.text.Document;
 
+import fun.seabird.MediaSortCmd.FolderGroup;
 import net.miginfocom.swing.MigLayout;
 
 public class MediaSortFrame extends JFrame 
@@ -45,7 +46,8 @@ public class MediaSortFrame extends JFrame
 	private static String resBtnText = "See Results!";
 	private static String exifAdjText = "EXIF Adjustment (0 hours)";
 	private static String csvBtnText = "Choose MyEBirdData CSV File";
-	private static String sepYearText = "Group Date Folders by Year";
+	private static String sepYearText = "Create Parent Folders by Year";
+	private static String locSortText = "Create Subfolders by Location";
 	private static String symbLinkText = "Generate Symbolic Links Instead of Moving Files"; 
 	private static String runBtnText = "Run"; 
 	
@@ -103,6 +105,7 @@ public class MediaSortFrame extends JFrame
 		JButton csvBrowse = new JButton(csvBtnText);
 		JLabel csvBrowseLbl = new JLabel();
 		
+		JCheckBox locSortCb = new JCheckBox(locSortText,false);
 		JCheckBox sepYearDirCb = new JCheckBox(sepYearText,false);
 		JCheckBox parentDirCb = new JCheckBox(subDirText,true);
 		JCheckBox symbLinkCb = new JCheckBox(symbLinkText,false);
@@ -201,6 +204,18 @@ public class MediaSortFrame extends JFrame
 			}
 		});
 		
+		locSortCb.addItemListener(new ItemListener()
+		{
+			@Override
+			public void itemStateChanged(ItemEvent e) 
+			{
+				if (e.getStateChange() == ItemEvent.SELECTED)
+					msc.setFolderGroup(FolderGroup.location);
+				else
+					msc.setFolderGroup(FolderGroup.date);
+			}
+		});
+		
 		parentDirCb.addItemListener(new ItemListener()
 		{
 			@Override
@@ -286,6 +301,7 @@ public class MediaSortFrame extends JFrame
 		jp.add(csvBrowse);
 		jp.add(csvBrowseLbl,"wrap");
 		jp.add(sepYearDirCb,"wrap");
+		jp.add(locSortCb,"wrap");
 		jp.add(parentDirCb,"wrap");
 		jp.add(symbLinkCb,"wrap");
 		jp.add(new JSeparator(),"span,grow,wrap");
