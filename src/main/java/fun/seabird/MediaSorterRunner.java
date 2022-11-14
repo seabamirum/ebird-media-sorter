@@ -60,8 +60,8 @@ public class MediaSorterRunner
 	
 	static final String OUTPUT_FOLDER_NAME = "ebird";
 	
-	final String[] invalidChars = new String[] {" ",":",",",".","/","\\"};
-	final String[] validChars = new String[] {"-","--","-","-","-","-"};
+	final String[] invalidChars = new String[] {" ",":",",",".","/","\\",">","<"};
+	final String[] validChars = new String[] {"-","--","-","-","-","-","-","-"};
 	
 	private final List<CreationDateProvider> cdpList = ImmutableList.of
 			(new ExifCreationDateProvider(),
