@@ -84,14 +84,52 @@
 	    <groupId>commons-io</groupId>
 	    <artifactId>commons-io</artifactId>
 	    <version>2.11.0</version>
-	</dependency>
-	
-	<!-- https://mvnrepository.com/artifact/com.miglayout/miglayout-swing -->
-	<dependency>
-	    <groupId>com.miglayout</groupId>
-	    <artifactId>miglayout-swing</artifactId>
-	    <version>5.3</version>
-	</dependency>			
+	</dependency>	
+
+<!-- https://mvnrepository.com/artifact/org.openjfx/javafx-base -->
+<dependency>
+    <groupId>org.openjfx</groupId>
+    <artifactId>javafx-base</artifactId>
+    <version>20-ea+11</version>
+</dependency>
+
+<!-- https://mvnrepository.com/artifact/org.openjfx/javafx-swing -->
+<dependency>
+    <groupId>org.openjfx</groupId>
+    <artifactId>javafx-swing</artifactId>
+    <version>20-ea+11</version>
+</dependency>
+
+<!-- https://mvnrepository.com/artifact/org.openjfx/javafx-controls -->
+<dependency>
+    <groupId>org.openjfx</groupId>
+    <artifactId>javafx-controls</artifactId>
+    <version>20-ea+11</version>
+</dependency>
+
+<!-- https://mvnrepository.com/artifact/org.slf4j/slf4j-api -->
+<dependency>
+    <groupId>org.slf4j</groupId>
+    <artifactId>slf4j-api</artifactId>
+    <version>2.0.6</version>
+</dependency>
+
+<!-- https://mvnrepository.com/artifact/ch.qos.logback/logback-core -->
+<dependency>
+    <groupId>ch.qos.logback</groupId>
+    <artifactId>logback-core</artifactId>
+    <version>1.4.5</version>
+</dependency>
+
+<!-- https://mvnrepository.com/artifact/ch.qos.logback/logback-classic -->
+<dependency>
+    <groupId>ch.qos.logback</groupId>
+    <artifactId>logback-classic</artifactId>
+    <version>1.4.5</version>
+</dependency>
+
+
+		
 	
 	</dependencies>    
   

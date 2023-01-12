@@ -2,10 +2,12 @@ package fun.seabird;
 
 import java.io.IOException;
 
+import javafx.application.Application;
+
 public abstract class MediaSorter 
 {
 	public static void main(String[] args) throws IOException
 	{
-		new MediaSortFrame();
+		Application.launch(MediaSorterApplication.class, args);			
 	} 
 }

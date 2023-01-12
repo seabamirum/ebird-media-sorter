@@ -21,8 +21,6 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
 
-import javax.swing.JProgressBar;
-
 import org.apache.commons.imaging.ImageReadException;
 import org.apache.commons.imaging.ImageWriteException;
 import org.apache.commons.imaging.Imaging;
@@ -36,6 +34,8 @@ import org.apache.commons.imaging.formats.tiff.write.TiffOutputDirectory;
 import org.apache.commons.imaging.formats.tiff.write.TiffOutputSet;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.supercsv.io.CsvListReader;
 import org.supercsv.prefs.CsvPreference;
 
@@ -47,9 +47,12 @@ import com.google.common.collect.TreeRangeMap;
 import com.google.common.io.Files;
 
 import fun.seabird.MediaSortCmd.FolderGroup;
+import javafx.concurrent.Task;
 
-public class MediaSorterRunner 
+public class MediaSorterRunner extends Task<Path>
 {	
+	private static final Logger logger = LoggerFactory.getLogger(MediaSorterRunner.class);
+	
 	private static final DateTimeFormatter csvDtf = DateTimeFormatter.ofPattern("yyyy-MM-dd hh:mm a");
 	private static final DateTimeFormatter imageDtf = DateTimeFormatter.ofPattern("yyyy:MM:dd HH:mm:ss");
 	private static final DateTimeFormatter folderDtf = DateTimeFormatter.ofPattern("yyyy-MM-dd");
@@ -84,7 +87,7 @@ public class MediaSorterRunner
 			csvListReader.getHeader(true);
 			List<String> values;
 			
-			System.out.print("Parsing " + csvFile.getPath() + "...");
+			logger.info("Parsing " + csvFile.getPath() + "...");
 			while ((values = csvListReader.read()) != null)
 			{
 				Integer duration = 0;
@@ -125,7 +128,7 @@ public class MediaSorterRunner
 				}
 			}
 		}	
-		System.out.println("Done!");
+		logger.info("Done!");
 	}
 	
 	/**
@@ -228,7 +231,7 @@ public class MediaSorterRunner
 		{
 			if (to.exists())
 			{
-				System.err.println(to.getPath() + " already exists!! Source file left in original location.");
+				logger.error(to.getPath() + " already exists!! Source file left in original location.");
 				return;
 			}
 			Files.move(from, to);
@@ -325,13 +328,13 @@ public class MediaSorterRunner
 		}
 		
 		boolean isImage = imageExtensions.contains(Files.getFileExtension(f.getName()).toLowerCase());
-		System.out.println("Processing " + f.getPath());
+		logger.info("Processing " + f.getPath());
 		if (hrsOffset != 0l && isImage)
 		{
 			String newDateTime = mediaTime.format(imageDtf);			
 			if (changeDateTimeOrig(f,movedFile,newDateTime))
 			{
-				System.out.println("Adjusted EXIF date of " + f.getPath() + " to " + newDateTime);
+				logger.info("Adjusted EXIF date of " + f.getPath() + " to " + newDateTime);
 				f.delete();
 			}
 			else
@@ -341,7 +344,8 @@ public class MediaSorterRunner
 			moveFile(f,movedFile);
 	}	
 	
-	public Path run() throws FileNotFoundException, IOException
+	@Override
+	protected Path call() throws Exception 
 	{
 		if (msc.getCsvFile() != null)
 			parseCsv(msc.getCsvFile());		
@@ -360,7 +364,7 @@ public class MediaSorterRunner
 		Iterable<File> traverser = Files.fileTraverser().depthFirstPreOrder(new File(mediaPath));
 		
 		List<File> eligibleFiles = new ArrayList<>();
-		System.out.println("Analyzing files...");
+		logger.info("Analyzing files...");
 		int i=0;
 		for (File f:traverser)
 		{
@@ -370,32 +374,31 @@ public class MediaSorterRunner
 				i++;
 				
 				if (i%100==0)
-					System.out.println("Added 100 files to queue (" + i + " total)...");
+					logger.info("Added 100 files to queue (" + i + " total)...");
 			}
 		}	
 		
 		if (eligibleFiles.isEmpty())
 		{
-			System.out.println("No eligible media files found.");
+			logger.info("No eligible media files found.");
 			return null;
 		}
 		
 		boolean sepYearDir = msc.isSepYear();
 		int numFiles = eligibleFiles.size();
 		i=1;
-		JProgressBar pb = msc.getPb();
-		System.out.println("Processing " + numFiles + " files in " + mediaPath + " and subdirectories...");
+		logger.info("Processing " + numFiles + " files in " + mediaPath + " and subdirectories...");
 		for (File f:eligibleFiles)
 		{
 			checkMetadataAndMove(f,outputPath,hrsOffset,subIds,sepYearDir,msc.getFolderGroup());
-			if (pb != null)
-				pb.setValue((int) (((i++)/((double)numFiles))*100));
+			final double progPer = i++/((double)numFiles);
+			updateProgress(progPer,1.0);
 		}
 		
 		//Move all files out of temp parent directory we created
 		if (!msc.isCreateParentDir())
 		{
-			System.out.println("Cleaning up...");
+			logger.info("Cleaning up...");
 			Iterable<File> traverser2 = Files.fileTraverser().depthFirstPreOrder(outputDir);
 			for (File f:traverser2)	
 			{
@@ -410,7 +413,7 @@ public class MediaSorterRunner
 				if (!newDir.exists())				
 					Files.move(f,newDir);
 				else
-					System.err.println("Directory " + newPath + " already exists! Check " + outputDir + " for results.");
+					logger.error("Directory " + newPath + " already exists! Check " + outputDir + " for results.");
 			}
 			outputDir.delete();
 		}
@@ -419,7 +422,7 @@ public class MediaSorterRunner
 			Path finalOutputPath = Paths.get(mediaPath,OUTPUT_FOLDER_NAME);
 			File finalOutputDir = new File (finalOutputPath.toUri());
 			if (finalOutputDir.exists())
-				System.err.println("Directory " + finalOutputPath + " already exists! Check " + outputDir + " for results.");
+				logger.error("Directory " + finalOutputPath + " already exists! Check " + outputDir + " for results.");
 			else			
 				outputDir.renameTo(finalOutputDir);
 		}
@@ -443,8 +446,11 @@ public class MediaSorterRunner
 			fw.close();
 		}	
 		
-		System.out.println("ALL DONE! :-)");
+		updateProgress(1.0,1.0);
+		
+		logger.info("ALL DONE! :-)");
 		return indexPath;
 		
-	} //END main
+	}
+	
 }

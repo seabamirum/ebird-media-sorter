@@ -2,12 +2,10 @@ package fun.seabird;
 
 import java.io.File;
 
-import javax.swing.JProgressBar;
+import javafx.scene.control.ProgressBar;
 
 public class MediaSortCmd 
-{
-	private transient JProgressBar pb;
-	
+{	
 	private String mediaPath;
 	private Long hrsOffset = 0l;
 	private File csvFile;
@@ -16,6 +14,8 @@ public class MediaSortCmd
 	private boolean createParentDir = true;
 	private boolean useSymbolicLinks = false;
 	private FolderGroup folderGroup = FolderGroup.date;
+	
+	private ProgressBar pb;
 	
 	enum FolderGroup {location,date}
 	
@@ -42,13 +42,7 @@ public class MediaSortCmd
 	}
 	public void setCsvFile(File csvFile) {
 		this.csvFile = csvFile;
-	}
-	public JProgressBar getPb() {
-		return pb;
-	}
-	public void setPb(JProgressBar pb) {
-		this.pb = pb;
-	}
+	}	
 	public boolean isCreateParentDir() {
 		return createParentDir;
 	}
@@ -67,5 +61,10 @@ public class MediaSortCmd
 	public void setFolderGroup(FolderGroup folderGroup) {
 		this.folderGroup = folderGroup;
 	}
-	
+	public ProgressBar getPb() {
+		return pb;
+	}
+	public void setPb(ProgressBar pb) {
+		this.pb = pb;
+	}	
 }
