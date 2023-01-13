@@ -11,10 +11,6 @@ Program to sort photos, audio, and video on the file system by date and eBird ch
 
 WARNING: This program by default moves any eBird-supported photo, video, or audio file to date (YYYY-MM-DD) subdirectories whether it finds a checklistId match or not. If a creation date cannot be read from EXIF, it looks for a date in the beginning of the file name, and finally file last-modified date is used. If you have already grouped your media by region, trip, etc. you may want to use the checkbox to generate symbolic (shorcut) link files instead. It is recommended to start with a small media directory first to understand the process. 
 
-Screenshot of directory structure (when both "Create parent folders by Year" and "Create subfolders by location" are checked):
-
-![ems_loc_group](https://user-images.githubusercontent.com/3449269/201725488-b90183c4-abf0-47c1-87b0-85aa6e5e4014.png)
-
 Generated CSV file:
 
 ![Screenshot_20220217_113905](https://user-images.githubusercontent.com/3449269/154528416-0e588227-f45b-4684-ae19-07b61620a745.png)
