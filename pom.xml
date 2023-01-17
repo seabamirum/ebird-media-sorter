@@ -93,13 +93,6 @@
     <version>20-ea+11</version>
 </dependency>
 
-<!-- https://mvnrepository.com/artifact/org.openjfx/javafx-swing -->
-<dependency>
-    <groupId>org.openjfx</groupId>
-    <artifactId>javafx-swing</artifactId>
-    <version>20-ea+11</version>
-</dependency>
-
 <!-- https://mvnrepository.com/artifact/org.openjfx/javafx-controls -->
 <dependency>
     <groupId>org.openjfx</groupId>
@@ -127,9 +120,6 @@
     <artifactId>logback-classic</artifactId>
     <version>1.4.5</version>
 </dependency>
-
-
-		
 	
 	</dependencies>    
   
