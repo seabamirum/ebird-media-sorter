@@ -1,5 +1,5 @@
 # eBird Media Sorter
-Program to sort photos, audio, and video on the file system by date and eBird checklistId. EXIF creation date can also be adjusted in batch for images. All media determined to be created on a given date will be put underneath a folder named with that date, e.g. '2022-01-29/'. If a checklistId match is found, sub-folders for each checklistId will be created, e.g. '2022-01-29/S2626262/'. When the process completes, it generates an index CSV file for all checklistId matches, so that you can easily find and prioritize which lists to upload media for, and mark them done when completed.
+This program organizes photos, audio, and video files on your file system by date or location, using information from your downloaded eBird data CSV file. It also allows you to adjust the EXIF creation date of images in bulk. The files are sorted into folders named with their creation date, such as '2022-01-29/', and if a checklistId match is found, additional sub-folders are created for each checklist, such as '2022-01-29/S2626262/'. Once the sorting process is complete, the program generates a CSV index file for all checklistId matches, making it easy for you to prioritize which lists to upload media for, and to keep track of which ones you have already completed.
 
 # Usage
 
