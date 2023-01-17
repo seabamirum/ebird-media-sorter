@@ -64,6 +64,7 @@ public class MediaSorterApplication extends Application
 		Label offsetLbl = new Label(exifAdjText);		
 		Slider offsetSlider = new Slider(-6,6,0);		
 		offsetSlider.setSnapToTicks(true);
+		offsetSlider.setMajorTickUnit(1);
 		
 		Button csvBrowse = new Button(csvBtnText);
 		Label csvBrowseLbl = new Label();
@@ -106,7 +107,7 @@ public class MediaSorterApplication extends Application
 				}
 		   }
 		);
-		
+			
 		offsetSlider.valueProperty().addListener((observable, oldValue, newValue) ->
 		{
 				int offset = newValue.intValue();
@@ -124,6 +125,8 @@ public class MediaSorterApplication extends Application
 					offsetLbl.setText(exifAdjText);
 					symbLinkCb.setDisable(false);
 				}
+				
+				offsetSlider.setValue(newValue.doubleValue());
 		}
 		);	
 		
@@ -218,9 +221,7 @@ public class MediaSorterApplication extends Application
 		gp.setVgap(20.0);
 				
 		gp.add(introLbl,0,0,3,1);
-		gp.add(new HBox(10,browseBut,browseButLbl),0,1,3,1);
-		
-		//gp.add(new HBox(10,offsetSlider,offsetLbl),0,2,3,1);
+		gp.add(new HBox(10,browseBut,browseButLbl),0,1,3,1);		
 		
 		gp.add(new HBox(10,csvBrowse,csvBrowseLbl),0,2,3,1);
 		
@@ -229,14 +230,16 @@ public class MediaSorterApplication extends Application
 		gp.add(locSortCb,0,5,3,1);
 		gp.add(symbLinkCb,0,6,3,1);
 		
-		gp.add(new Separator(),0,7,3,1);
+		gp.add(new HBox(10,offsetSlider,offsetLbl),0,7,3,1);
 		
-		gp.add(runBut,0,8,3,1);
+		gp.add(new Separator(),0,8,3,1);
 		
-		gp.add(pb,0,9,3,2);
+		gp.add(runBut,0,9,3,1);
 		
-		gp.add(scroll,0,11,3,1);
-		gp.add(resBtn,0,15,3,1);	
+		gp.add(pb,0,10,3,2);
+		
+		gp.add(scroll,0,12,3,1);
+		gp.add(resBtn,0,16,3,1);	
 					
 		Scene scene = new Scene(gp,FRAME_WIDTH,FRAME_HEIGHT);
 		Insets padding = new Insets(10,0,10,30); //padding on the left side
