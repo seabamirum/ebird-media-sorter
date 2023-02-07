@@ -13,6 +13,12 @@ This program organizes photos, audio, and video files on your file system by dat
 
 Warning: This program by default moves any eBird-supported photo, video, or audio file to date (YYYY-MM-DD) subdirectories whether it finds a checklistId match or not. If a creation date cannot be read from EXIF, it looks for a date in the beginning of the file name, and finally file last-modified date is used. If you have already grouped your media in some other fashion, you may want to use the checkbox to generate symbolic (shorcut) link files instead. I recommend starting with a small media directory first to understand the process. 
 
+#Screenshots
+
+Application (Linux/Ubuntu):
+
+![Screenshot_20230207_100507](https://user-images.githubusercontent.com/3449269/217298547-d48ce8db-74fd-49e4-927f-8d10023a45bb.png)
+
 Generated CSV file:
 
 ![Screenshot_20220217_113905](https://user-images.githubusercontent.com/3449269/154528416-0e588227-f45b-4684-ae19-07b61620a745.png)
