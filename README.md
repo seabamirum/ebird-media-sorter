@@ -21,4 +21,4 @@ Application (Linux/Ubuntu):
 
 Generated CSV file:
 
-![Screenshot_20220217_113905](https://user-images.githubusercontent.com/3449269/154528416-0e588227-f45b-4684-ae19-07b61620a745.png)
+![Screenshot_20230207_101153](https://user-images.githubusercontent.com/3449269/217300138-225af111-41ab-40de-88dc-0637f48e252e.png)
