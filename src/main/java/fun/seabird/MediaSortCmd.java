@@ -2,8 +2,6 @@ package fun.seabird;
 
 import java.io.File;
 
-import javafx.scene.control.ProgressBar;
-
 public class MediaSortCmd 
 {	
 	private String mediaPath;
@@ -13,10 +11,8 @@ public class MediaSortCmd
 	private boolean sepYear = false;	
 	private boolean createParentDir = true;
 	private boolean useSymbolicLinks = false;
-	private FolderGroup folderGroup = FolderGroup.date;
-	
-	private ProgressBar pb;
-	
+	private FolderGroup folderGroup = FolderGroup.date;	
+
 	enum FolderGroup {location,date}
 	
 	public Long getHrsOffset() {
@@ -61,10 +57,4 @@ public class MediaSortCmd
 	public void setFolderGroup(FolderGroup folderGroup) {
 		this.folderGroup = folderGroup;
 	}
-	public ProgressBar getPb() {
-		return pb;
-	}
-	public void setPb(ProgressBar pb) {
-		this.pb = pb;
-	}	
 }

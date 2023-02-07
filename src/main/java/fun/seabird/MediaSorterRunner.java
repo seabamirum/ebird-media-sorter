@@ -328,13 +328,13 @@ public class MediaSorterRunner extends Task<Path>
 		}
 		
 		boolean isImage = imageExtensions.contains(Files.getFileExtension(f.getName()).toLowerCase());
-		logger.info("Processing " + f.getPath());
+		logger.debug("Processing " + f.getPath());
 		if (hrsOffset != 0l && isImage)
 		{
 			String newDateTime = mediaTime.format(imageDtf);			
 			if (changeDateTimeOrig(f,movedFile,newDateTime))
 			{
-				logger.info("Adjusted EXIF date of " + f.getPath() + " to " + newDateTime);
+				logger.debug("Adjusted EXIF date of " + f.getPath() + " to " + newDateTime);
 				f.delete();
 			}
 			else
@@ -374,7 +374,7 @@ public class MediaSorterRunner extends Task<Path>
 				i++;
 				
 				if (i%100==0)
-					logger.info("Added 100 files to queue (" + i + " total)...");
+					logger.info("Added 100 files to processing queue (" + i + " total)...");
 			}
 		}	
 		
@@ -432,11 +432,11 @@ public class MediaSorterRunner extends Task<Path>
 		{
 			indexPath = Paths.get(mediaPath,"checklistIndex_" + new Date().getTime() + ".csv");
 			FileWriter fw = new FileWriter(indexPath.toString());		
-			fw.write("Checklist Link,Date,Subnat1,County,Num Uploaded,Num Local\n");
+			fw.write("Checklist Link,Date,State,County,Num Uploaded Assets,Num Local Assets\n");
 			for (String subId:subIds)
 			{
 				SubStats ss = checklistStatsMap.get(subId);
-				fw.write("https://ebird.org/checklist/" + subId + ",");
+				fw.write("https://ebird.org/checklist/" + subId + "/media,");
 				fw.write(ss.getDate() + ",");
 				fw.write(ss.getSubnational1Code() + ",");
 				fw.write(ss.getCounty() + ",");
