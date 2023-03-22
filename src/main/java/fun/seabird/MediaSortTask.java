@@ -49,9 +49,9 @@ import com.google.common.io.Files;
 import fun.seabird.MediaSortCmd.FolderGroup;
 import javafx.concurrent.Task;
 
-public class MediaSorterRunner extends Task<Path>
+public class MediaSortTask extends Task<Path>
 {	
-	private static final Logger logger = LoggerFactory.getLogger(MediaSorterRunner.class);
+	private static final Logger logger = LoggerFactory.getLogger(MediaSortTask.class);
 	
 	private static final DateTimeFormatter csvDtf = DateTimeFormatter.ofPattern("yyyy-MM-dd hh:mm a");
 	private static final DateTimeFormatter imageDtf = DateTimeFormatter.ofPattern("yyyy:MM:dd HH:mm:ss");
@@ -74,7 +74,7 @@ public class MediaSorterRunner extends Task<Path>
 	private final Map<String,SubStats> checklistStatsMap = new TreeMap<>();	
 	private final MediaSortCmd msc;
 	
-	public MediaSorterRunner(MediaSortCmd msc) {
+	public MediaSortTask(MediaSortCmd msc) {
 		this.msc = msc;
 	}
 

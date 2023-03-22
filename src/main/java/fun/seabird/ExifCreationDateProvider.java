@@ -26,9 +26,9 @@ public class ExifCreationDateProvider implements CreationDateProvider
 		String fileName = f.getName();
 		String fileExt = Files.getFileExtension(fileName).toLowerCase();		
 		
-		boolean isImage = MediaSorterRunner.imageExtensions.contains(fileExt);
-		boolean isAudio= MediaSorterRunner.audioExtensions.contains(fileExt);
-		boolean isVideo = MediaSorterRunner.videoExtensions.contains(fileExt);
+		boolean isImage = MediaSortTask.imageExtensions.contains(fileExt);
+		boolean isAudio= MediaSortTask.audioExtensions.contains(fileExt);
+		boolean isVideo = MediaSortTask.videoExtensions.contains(fileExt);
 		
 		Metadata metadata = null;		
 		try(FileInputStream mediaStream = new FileInputStream(f))
@@ -78,7 +78,7 @@ public class ExifCreationDateProvider implements CreationDateProvider
 			}
 		}
 		
-		if (!isImage || hrsOffset == 0l || MediaSorterRunner.shouldAdjustExif(f) == null)
+		if (!isImage || hrsOffset == 0l || MediaSortTask.shouldAdjustExif(f) == null)
 			return parseTime(dateTimeOrigStr,dtf);
 		
 		return parseTime(dateTimeOrigStr,dtf,hrsOffset);

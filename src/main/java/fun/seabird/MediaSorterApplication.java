@@ -103,7 +103,7 @@ public class MediaSorterApplication extends Application
 		        	msc.setMediaPath(path);
 		        	browseButLbl.setText(path);
 		        	runBut.setDisable(false);			        	
-		        	parentDirCb.setText(subDirText + " " + msc.getMediaPath() + File.separator + MediaSorterRunner.OUTPUT_FOLDER_NAME);
+		        	parentDirCb.setText(subDirText + " " + msc.getMediaPath() + File.separator + MediaSortTask.OUTPUT_FOLDER_NAME);
 				}
 		   }
 		);
@@ -180,7 +180,7 @@ public class MediaSorterApplication extends Application
 			
 			OUTPUT_LOG.clear();	
 			
-			Task<Path> task = new MediaSorterRunner(msc);
+			Task<Path> task = new MediaSortTask(msc);
 			
 			pb.progressProperty().bind(task.progressProperty());
 			
