@@ -7,7 +7,6 @@ import java.nio.file.Path;
 
 import fun.seabird.MediaSortCmd.FolderGroup;
 import javafx.application.Application;
-import javafx.concurrent.Task;
 import javafx.geometry.Insets;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
@@ -43,6 +42,7 @@ public class MediaSorterApplication extends Application
 	private static String locSortText = "Create Subfolders by Location";
 	private static String symbLinkText = "Generate Symbolic Links Instead of Moving Files"; 
 	private static String runBtnText = "Run"; 
+	private static String transcodeVidText = "Transcode large video (.mp4) files";
 	
 	private ExtensionFilter csvFilter = new ExtensionFilter("CSV Files","*.csv");
 	
@@ -73,7 +73,8 @@ public class MediaSorterApplication extends Application
 		CheckBox sepYearDirCb = new CheckBox(sepYearText);
 		CheckBox parentDirCb = new CheckBox(subDirText);
 		parentDirCb.setSelected(true);
-		CheckBox symbLinkCb = new CheckBox(symbLinkText);
+		CheckBox symbLinkCb = new CheckBox(symbLinkText);		
+		CheckBox transcodeVidCb = new CheckBox(transcodeVidText);
 		
 		Button runBut = new Button(runBtnText);
 		runBut.setDisable(true);
@@ -170,6 +171,11 @@ public class MediaSorterApplication extends Application
 				msc.setUseSymbolicLinks(symbLinkCb.isSelected());				
 		});
 		
+		transcodeVidCb.setOnAction(event ->
+		{
+				msc.setTranscodeVideos(transcodeVidCb.isSelected());				
+		});
+		
 		runBut.setOnAction(event ->
 		{
 			runBut.setDisable(true);
@@ -180,11 +186,13 @@ public class MediaSorterApplication extends Application
 			
 			OUTPUT_LOG.clear();	
 			
-			Task<Path> task = new MediaSortTask(msc);
+			MediaSortTask task = new MediaSortTask(msc);
 			
 			pb.progressProperty().bind(task.progressProperty());
 			
-		    new Thread(task).start();
+			Thread taskThr = new Thread(task);
+			taskThr.setDaemon(true);			
+		    taskThr.start();
 		    
 		    task.setOnSucceeded(success ->
 		    {
@@ -197,8 +205,21 @@ public class MediaSorterApplication extends Application
 					resBtn.setDisable(false);
 					resBtn.setVisible(true);
 				}
-		    });	
+		    });		 
+		    
+		    Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+			    if (task.getProcess() != null)
+			    {
+			    	try {
+						task.getProcess().waitFor();
+					} catch (InterruptedException e) {
+						e.printStackTrace();
+					}
+			        task.getProcess().destroy();
+			    }
+			}));
 		}
+		
 		);
 		
 		resBtn.setOnAction(event ->
@@ -229,23 +250,24 @@ public class MediaSorterApplication extends Application
 		gp.add(sepYearDirCb,0,4,3,1);
 		gp.add(locSortCb,0,5,3,1);
 		gp.add(symbLinkCb,0,6,3,1);
+		gp.add(transcodeVidCb,0,7,3,1);
 		
-		gp.add(new HBox(10,offsetSlider,offsetLbl),0,7,3,1);
+		gp.add(new HBox(10,offsetSlider,offsetLbl),0,8,3,1);
 		
-		gp.add(new Separator(),0,8,3,1);
+		gp.add(new Separator(),0,9,3,1);
 		
-		gp.add(runBut,0,9,3,1);
+		gp.add(runBut,0,10,3,1);
 		
-		gp.add(pb,0,10,3,2);
+		gp.add(pb,0,11,3,2);
 		
-		gp.add(scroll,0,12,3,1);
-		gp.add(resBtn,0,16,3,1);	
+		gp.add(scroll,0,13,3,1);
+		gp.add(resBtn,0,17,3,1);	
 					
 		Scene scene = new Scene(gp,FRAME_WIDTH,FRAME_HEIGHT);
 		Insets padding = new Insets(10,0,10,30); //padding on the left side
 		((Region) scene.getRoot()).setPadding(padding);
 		s.setScene(scene);
 		s.setResizable(true);
-		s.show();
+		s.show();	
 	}
 }

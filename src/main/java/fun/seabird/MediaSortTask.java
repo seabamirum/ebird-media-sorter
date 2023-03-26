@@ -63,6 +63,9 @@ public class MediaSortTask extends Task<Path>
 	
 	static final String OUTPUT_FOLDER_NAME = "ebird";
 	
+	static final long MAX_ML_UPLOAD_SIZE_VIDEO = 250l;
+	static final String TRANSCODED_VIDEO_SUFFIX = "_s";
+	
 	final String[] invalidChars = new String[] {" ",":",",",".","/","\\",">","<"};
 	final String[] validChars = new String[] {"-","--","-","-","-","-","-","-"};
 	
@@ -73,6 +76,8 @@ public class MediaSortTask extends Task<Path>
 	private final RangeMap<LocalDateTime, String> rangeMap = TreeRangeMap.create();
 	private final Map<String,SubStats> checklistStatsMap = new TreeMap<>();	
 	private final MediaSortCmd msc;
+	
+	private transient Process process;
 	
 	public MediaSortTask(MediaSortCmd msc) {
 		this.msc = msc;
@@ -260,7 +265,7 @@ public class MediaSortTask extends Task<Path>
 		String subId = null;
 		if (mediaTime != null)					
 			subId =	rangeMap.get(mediaTime);	
-		File movedFile;
+		String moveToFolder;
 		
 		String mediaDateStr = mediaTime.format(folderDtf);
 		
@@ -312,7 +317,7 @@ public class MediaSortTask extends Task<Path>
 			if (!subIdDir.exists())
 				subIdDir.mkdir();
 			
-			movedFile = new File(folderPath + File.separator + f.getName());
+			moveToFolder = folderPath;
 			
 			subIds.add(subId);
 			ss.incNumAssetsLocal();
@@ -324,24 +329,58 @@ public class MediaSortTask extends Task<Path>
 			if (!dateDir.exists())
 				dateDir.mkdir();
 			
-			movedFile = new File(parentFolderPath + File.separator + f.getName());
+			moveToFolder = parentFolderPath;
 		}
 		
-		boolean isImage = imageExtensions.contains(Files.getFileExtension(f.getName()).toLowerCase());
+		String fileName = f.getName();
+		String fileExt = Files.getFileExtension(fileName).toLowerCase();
+		boolean isImage = imageExtensions.contains(fileExt);
 		logger.debug("Processing " + f.getPath());
 		if (hrsOffset != 0l && isImage)
 		{
 			String newDateTime = mediaTime.format(imageDtf);			
-			if (changeDateTimeOrig(f,movedFile,newDateTime))
+			if (changeDateTimeOrig(f,new File(moveToFolder + File.separator + fileName),newDateTime))
 			{
 				logger.debug("Adjusted EXIF date of " + f.getPath() + " to " + newDateTime);
 				f.delete();
+				return;
 			}
-			else
-				moveFile(f,movedFile);
 		}
-		else		
-			moveFile(f,movedFile);
+		
+		if (msc.isTranscodeVideos() && fileExt.equals("mp4") && !fileName.contains(TRANSCODED_VIDEO_SUFFIX))
+		{
+			 long fileSizeInBytes = f.length();
+		     long fileSizeInMB = fileSizeInBytes / (1024 * 1024);
+		     if (fileSizeInMB > MAX_ML_UPLOAD_SIZE_VIDEO) 
+		     {
+		    	 String outputFileName = fileName.replaceFirst("[.][^.]+$", "") + TRANSCODED_VIDEO_SUFFIX + ".mp4";		    	 
+		    	 File outputFile = new File(f.getParentFile() + File.separator + outputFileName);
+		    	 if (!outputFile.exists())
+		    	 {
+			    	 logger.info(fileName + " too large for ML upload, transcoding with ffmpeg...");
+			    	 String convVideoPath = moveToFolder + File.separator + outputFileName;
+			    	 String[] command = {"ffmpeg", "-i", f.getAbsolutePath(), "-map_metadata", "0:s:0", "-c:v", "libx264", "-crf", "22", "-preset", "medium", "-c:a", "aac", "-b:a", "128k", "-movflags", "+faststart", "-max_muxing_queue_size", "1024", convVideoPath};
+			        
+			         ProcessBuilder pb = new ProcessBuilder(command);
+			         pb.redirectError(ProcessBuilder.Redirect.DISCARD);
+			         pb.redirectOutput(ProcessBuilder.Redirect.DISCARD);
+			         
+			         try
+			         {
+	        	         process = pb.start();
+	        	         int res = process.waitFor();
+	        	         if (res == 0)
+	        	            logger.info("Saved converted video to: " + convVideoPath);	
+	        	         process.destroy();
+			         }
+		    	 	catch (InterruptedException | IOException e) {
+	        	        logger.error("Cannot transcode video to smaller size", e);
+	        	    }
+		     	}
+		     }
+		}
+			
+		moveFile(f,new File(moveToFolder + File.separator + fileName));
 	}	
 	
 	@Override
@@ -451,6 +490,10 @@ public class MediaSortTask extends Task<Path>
 		logger.info("ALL DONE! :-)");
 		return indexPath;
 		
+	}
+
+	public Process getProcess() {
+		return process;
 	}
 	
 }

@@ -9,6 +9,7 @@ public class MediaSortCmd
 	private File csvFile;
 	
 	private boolean sepYear = false;	
+	private boolean transcodeVideos = false;
 	private boolean createParentDir = true;
 	private boolean useSymbolicLinks = false;
 	private FolderGroup folderGroup = FolderGroup.date;	
@@ -57,4 +58,11 @@ public class MediaSortCmd
 	public void setFolderGroup(FolderGroup folderGroup) {
 		this.folderGroup = folderGroup;
 	}
+	public boolean isTranscodeVideos() {
+		return transcodeVideos;
+	}
+	public void setTranscodeVideos(boolean transcodeVideos) {
+		this.transcodeVideos = transcodeVideos;
+	}
+	
 }
