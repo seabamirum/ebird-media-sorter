@@ -31,7 +31,7 @@ public class FileNameCreationDateProvider implements CreationDateProvider
 	public LocalDateTime findCreationDate(File f,Long hrsOffset)
 	{
 		String fileName = f.getName();
-		String dateTimeOrigStr = StringUtils.left(fileName,13);
+		String dateTimeOrigStr = StringUtils.left(fileName,14);
 		
 		if (!StringUtils.startsWithAny(dateTimeOrigStr,"1","2") || StringUtils.containsNone(dateTimeOrigStr,'-','_'))
 			return null;
