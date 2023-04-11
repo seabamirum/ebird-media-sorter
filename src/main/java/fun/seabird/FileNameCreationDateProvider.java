@@ -1,6 +1,6 @@
 package fun.seabird;
 
-import java.io.File;
+import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
@@ -28,9 +28,9 @@ public class FileNameCreationDateProvider implements CreationDateProvider
 	 * @param hrsOffset the offset in hours to add or subtract from the creation date (can be null)
 	 * @return the creation date of the file, or null if it cannot be determined
 	 */
-	public LocalDateTime findCreationDate(File f,Long hrsOffset)
+	public LocalDateTime findCreationDate(Path f,Long hrsOffset)
 	{
-		String fileName = f.getName();
+		String fileName = f.getFileName().toString();
 		String dateTimeOrigStr = StringUtils.left(fileName,14);
 		
 		if (!StringUtils.startsWithAny(dateTimeOrigStr,"1","2") || StringUtils.containsNone(dateTimeOrigStr,'-','_'))

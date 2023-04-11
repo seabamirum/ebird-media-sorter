@@ -1,7 +1,7 @@
 package fun.seabird;
 
-import java.io.File;
 import java.io.IOException;
+import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
@@ -30,5 +30,5 @@ public interface CreationDateProvider
 		return mediaTime == null ? null : mediaTime.plusHours(hrsOffset);
 	}
 	
-	LocalDateTime findCreationDate(File f,Long hrsOffset) throws IOException;
+	LocalDateTime findCreationDate(Path f,Long hrsOffset) throws IOException;
 }

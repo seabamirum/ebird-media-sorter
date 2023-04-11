@@ -1,8 +1,9 @@
 package fun.seabird;
 
-import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
@@ -15,23 +16,22 @@ import com.drew.metadata.exif.ExifSubIFDDirectory;
 import com.drew.metadata.mov.media.QuickTimeMediaDirectory;
 import com.drew.metadata.mp4.Mp4Directory;
 import com.drew.metadata.wav.WavDirectory;
-import com.google.common.io.Files;
 
 public class ExifCreationDateProvider implements CreationDateProvider
 {
 	private static final DateTimeFormatter imageDtf = DateTimeFormatter.ofPattern("yyyy:MM:dd HH:mm:ss");
 
-	public LocalDateTime findCreationDate(File f,Long hrsOffset) throws IOException
+	public LocalDateTime findCreationDate(Path f,Long hrsOffset) throws IOException
 	{
-		String fileName = f.getName();
-		String fileExt = Files.getFileExtension(fileName).toLowerCase();		
+		String fileName = f.getFileName().toString();
+		String fileExt = MediaSortTask.getFileExtension(fileName).toLowerCase();		
 		
 		boolean isImage = MediaSortTask.imageExtensions.contains(fileExt);
 		boolean isAudio= MediaSortTask.audioExtensions.contains(fileExt);
 		boolean isVideo = MediaSortTask.videoExtensions.contains(fileExt);
 		
 		Metadata metadata = null;		
-		try(FileInputStream mediaStream = new FileInputStream(f))
+		try(InputStream mediaStream = Files.newInputStream(f))
 		{
 			try {
 				metadata = ImageMetadataReader.readMetadata(mediaStream);		
@@ -78,7 +78,7 @@ public class ExifCreationDateProvider implements CreationDateProvider
 			}
 		}
 		
-		if (!isImage || hrsOffset == 0l || MediaSortTask.shouldAdjustExif(f) == null)
+		if (!isImage || hrsOffset == 0l || MediaSortTask.shouldAdjustExif(Files.readAllBytes(f)) == null)
 			return parseTime(dateTimeOrigStr,dtf);
 		
 		return parseTime(dateTimeOrigStr,dtf,hrsOffset);
