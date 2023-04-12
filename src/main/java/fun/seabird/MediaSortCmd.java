@@ -1,12 +1,12 @@
 package fun.seabird;
 
-import java.io.File;
+import java.nio.file.Path;
 
 public class MediaSortCmd 
 {	
 	private String mediaPath;
 	private Long hrsOffset = 0l;
-	private File csvFile;
+	private Path csvFile;
 	
 	private boolean sepYear = false;	
 	private boolean transcodeVideos = false;
@@ -34,10 +34,10 @@ public class MediaSortCmd
 	public void setMediaPath(String mediaPath) {
 		this.mediaPath = mediaPath;
 	}
-	public File getCsvFile() {
+	public Path getCsvFile() {
 		return csvFile;
 	}
-	public void setCsvFile(File csvFile) {
+	public void setCsvFile(Path csvFile) {
 		this.csvFile = csvFile;
 	}	
 	public boolean isCreateParentDir() {

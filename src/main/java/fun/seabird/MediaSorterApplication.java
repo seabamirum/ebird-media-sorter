@@ -140,7 +140,7 @@ public class MediaSorterApplication extends Application
 			
 			if (f != null)
 			{
-				msc.setCsvFile(f); 
+				msc.setCsvFile(f.toPath()); 
 				csvBrowseLbl.setText(f.getPath());
 			}
 		});
