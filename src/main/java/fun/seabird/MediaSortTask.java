@@ -5,9 +5,8 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.io.Reader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -20,11 +19,16 @@ import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.TreeMap;
 import java.util.TreeSet;
+import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.stream.Stream;
 
+import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVParser;
+import org.apache.commons.csv.CSVRecord;
 import org.apache.commons.imaging.ImageReadException;
 import org.apache.commons.imaging.ImageWriteException;
 import org.apache.commons.imaging.Imaging;
@@ -37,10 +41,9 @@ import org.apache.commons.imaging.formats.tiff.constants.ExifTagConstants;
 import org.apache.commons.imaging.formats.tiff.write.TiffOutputDirectory;
 import org.apache.commons.imaging.formats.tiff.write.TiffOutputSet;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.time.StopWatch;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.supercsv.io.CsvListReader;
-import org.supercsv.prefs.CsvPreference;
 
 import com.google.common.collect.Range;
 import com.google.common.collect.RangeMap;
@@ -48,255 +51,264 @@ import com.google.common.collect.TreeRangeMap;
 
 import fun.seabird.MediaSortCmd.FolderGroup;
 import javafx.concurrent.Task;
+import reactor.core.publisher.Flux;
+import reactor.core.scheduler.Schedulers;
 
-public class MediaSortTask extends Task<Path>
-{	
+public class MediaSortTask extends Task<Path> {
 	private static final Logger logger = LoggerFactory.getLogger(MediaSortTask.class);
-	
+
 	private static final DateTimeFormatter csvDtf = DateTimeFormatter.ofPattern("yyyy-MM-dd hh:mm a");
 	private static final DateTimeFormatter imageDtf = DateTimeFormatter.ofPattern("yyyy:MM:dd HH:mm:ss");
 	private static final DateTimeFormatter folderDtf = DateTimeFormatter.ofPattern("yyyy-MM-dd");
-	
-	public static final Set<String> audioExtensions = Set.of("wav","mp3","m4a");
-	public static final Set<String> videoExtensions = Set.of("mov","m4v","mp4");
-	public static final Set<String> imageExtensions = Set.of("jpg","jpeg","png","crx","crw","cr2","cr3","crm","arw","nef","orf","raf");	
-	
+
+	public static final Set<String> audioExtensions = Set.of("wav", "mp3", "m4a");
+	public static final Set<String> videoExtensions = Set.of("mov", "m4v", "mp4");
+	public static final Set<String> imageExtensions = Set.of("jpg", "jpeg", "png", "crx", "crw", "cr2", "cr3", "crm",
+			"arw", "nef", "orf", "raf");
+
 	static final String OUTPUT_FOLDER_NAME = "ebird";
-	
+
 	static final long MAX_ML_UPLOAD_SIZE_VIDEO = 250l;
 	static final String TRANSCODED_VIDEO_SUFFIX = "_s";
-	
-	final String[] invalidChars = new String[] {" ",":",",",".","/","\\",">","<"};
-	final String[] validChars = new String[] {"-","--","-","-","-","-","-","-"};
-	
-	private final List<CreationDateProvider> creationDateProviders = List.of
-			(new ExifCreationDateProvider(),
-			new FileNameCreationDateProvider(),
-			new FileModifiedCreationDateProvider());
+
+	final String[] invalidChars = new String[] { " ", ":", ",", ".", "/", "\\", ">", "<" };
+	final String[] validChars = new String[] { "-", "--", "-", "-", "-", "-", "-", "-" };
+
+	private final List<CreationDateProvider> creationDateProviders = List.of(new ExifCreationDateProvider(),
+			new FileNameCreationDateProvider(), new FileModifiedCreationDateProvider());
+	private final ReadWriteLock rangeMapLock = new ReentrantReadWriteLock();
 	private final RangeMap<LocalDateTime, String> rangeMap = TreeRangeMap.create();
-	private final Map<String,SubStats> checklistStatsMap = new TreeMap<>();	
+	private final Map<String, SubStats> checklistStatsMap = new ConcurrentSkipListMap<>();
 	private final MediaSortCmd msc;
-	
+
 	private transient Process process;
-	
+
+	private static final int CSV_BATCH_SIZE = 50000;
+
 	public MediaSortTask(MediaSortCmd msc) {
 		this.msc = msc;
 	}
 
-	private void parseCsv(Path csvFile) throws FileNotFoundException, IOException
-	{
-		//Initialize RangeMap for quickly finding subId for a date
-		try(InputStream myDataStream = Files.newInputStream(csvFile);
-			CsvListReader csvListReader = new CsvListReader(new InputStreamReader(myDataStream,"UTF-8"),CsvPreference.STANDARD_PREFERENCE))
-		{			
-			csvListReader.getHeader(true);
-			List<String> values;
-			
-			logger.info("Parsing " + csvFile + "...");
-			while ((values = csvListReader.read()) != null)
-			{
-				Integer duration = 0;
-				String durationStr = values.get(14);
-				if (durationStr != null)
-					duration = Integer.valueOf(durationStr);
-				
-				if (duration <= 0)
-					continue;
-				
-				String obsTimeStr = values.get(12);
-				
-				if (obsTimeStr == null)
-					continue;
-					
-				String subId = values.get(0);
-				String obsDtStr = values.get(11);
-				String subnational1Code = values.get(5);
-				String county = values.get(6);
-				String locName = values.get(8);
-				
-				LocalDateTime subBeginTime = LocalDateTime.parse(obsDtStr + " " + obsTimeStr,csvDtf);				
-				LocalDateTime subEndTime = subBeginTime.plusMinutes(duration);
-				
-				rangeMap.put(Range.closed(subBeginTime,subEndTime),subId);
-				
-				if (!checklistStatsMap.containsKey(subId))				
-					checklistStatsMap.putIfAbsent(subId,new SubStats(subBeginTime,subnational1Code,county,locName));				
-				
-				int numUploaded = 0;
-				if (values.size() > 22)
-				{
-					String assets = values.get(22);
-					if (assets != null)
-						numUploaded = 1+StringUtils.countMatches(assets,' ');
-					
-					checklistStatsMap.get(subId).incNumAssetsUploaded(numUploaded);
-				}
+	/**
+	 * Parses a CSV record and updates the checklist statistics map and range map
+	 * with relevant information.
+	 * 
+	 * @param record The CSV record to be parsed.
+	 */
+	private void parseCsvLine(CSVRecord record) {
+		if (record.getRecordNumber() == 1l)
+			return; // skip the header
+
+		long duration = 0;
+		String durationStr = record.get(14);
+		if (StringUtils.isNotBlank(durationStr))
+			duration = Long.parseLong(durationStr);
+
+		if (duration <= 0)
+			return;
+
+		String obsTimeStr = record.get(12);
+
+		if (StringUtils.isBlank(obsTimeStr))
+			return;
+
+		String subId = record.get(0);
+		if (!checklistStatsMap.containsKey(subId)) {
+			String obsDtStr = record.get(11);
+			String subnational1Code = record.get(5);
+			String county = record.get(6);
+			String locName = record.get(8);
+
+			LocalDateTime subBeginTime = LocalDateTime.parse(obsDtStr + " " + obsTimeStr, csvDtf);
+			LocalDateTime subEndTime = subBeginTime.plusMinutes(duration);
+
+			checklistStatsMap.putIfAbsent(subId, new SubStats(subBeginTime, subnational1Code, county, locName));
+
+			rangeMapLock.writeLock().lock();
+			try {
+				rangeMap.put(Range.closed(subBeginTime, subEndTime), subId);
+			} finally {
+				rangeMapLock.writeLock().unlock();
 			}
-		}	
-		logger.info("Done!");
+		}
+
+		if (record.size() > 22) {
+			String assets = record.get(22);
+			if (StringUtils.isNotBlank(assets)) {
+				int numMLAssetsForObs = 1 + StringUtils.countMatches(assets, ' ');
+				checklistStatsMap.get(subId).incNumAssetsUploaded(numMLAssetsForObs);
+			}
+		}
 	}
-	
+
+	public void parseCsv(Path csvFile) throws IOException {
+		logger.info("Parsing " + csvFile + "...");
+
+		try (Reader fileReader = Files.newBufferedReader(csvFile);
+				CSVParser csvParser = new CSVParser(fileReader,
+						CSVFormat.DEFAULT.builder().setSkipHeaderRecord(true).build())) {
+
+			StopWatch stopwatch = StopWatch.createStarted();
+
+			Flux.fromIterable(csvParser).parallel() // Enable parallel processing
+					.runOn(Schedulers.parallel()).doOnNext(this::parseCsvLine).sequential(CSV_BATCH_SIZE).then()
+					.block();
+
+			stopwatch.stop();
+			logger.info("Parsed eBird data in " + stopwatch);
+		}
+	}
+
 	/**
 	 * @param jpegImageFile
-	 * @return NULL if not an image or image is from an Apple or Google device--the metadata otherwise
+	 * @return NULL if not an image or image is from an Apple or Google device--the
+	 *         metadata otherwise
 	 */
-	public static JpegImageMetadata shouldAdjustExif(byte[] jpegImageFile)
-    {
-    	 ImageMetadata metadata;
-			try {
-				metadata = Imaging.getMetadata(jpegImageFile);
-			} catch (ImageReadException | IOException e) 
-			{
-				e.printStackTrace();
+	public static JpegImageMetadata shouldAdjustExif(byte[] jpegImageFile) {
+		ImageMetadata metadata;
+		try {
+			metadata = Imaging.getMetadata(jpegImageFile);
+		} catch (ImageReadException | IOException e) {
+			e.printStackTrace();
+			return null;
+		}
+
+		if (!(metadata instanceof JpegImageMetadata))
+			return null;
+
+		JpegImageMetadata jpegMetadata = (JpegImageMetadata) metadata;
+
+		// Don't adjust EXIF offset for mobile phones
+		List<ImageMetadataItem> items = jpegMetadata.getItems();
+		for (ImageMetadataItem item : items) {
+			String itemStr = item.toString();
+			if (StringUtils.contains(itemStr, "Make") && StringUtils.containsAny(itemStr, "Apple", "Google"))
 				return null;
-			}
-			
-         if (!(metadata instanceof JpegImageMetadata))
-         	return null;
-         
-         JpegImageMetadata jpegMetadata = (JpegImageMetadata) metadata;   
-         
-         //Don't adjust EXIF offset for mobile phones
-         List<ImageMetadataItem> items = jpegMetadata.getItems();
-         for (ImageMetadataItem item:items)
-         {
-         	String itemStr = item.toString();
-         	if (StringUtils.contains(itemStr,"Make") && StringUtils.containsAny(itemStr,"Apple","Google"))
-         		return null;
-         }
-         
-         return jpegMetadata;
-    }
-	
+		}
+
+		return jpegMetadata;
+	}
+
 	/**
-	 * Changes the "DateTimeOriginal" Exif tag of a JPEG image file to a new date and time value.
+	 * Changes the "DateTimeOriginal" Exif tag of a JPEG image file to a new date
+	 * and time value.
+	 * 
 	 * @param jpegImageFile The JPEG image file to modify.
-	 * @param dest The destination file where the modified image will be saved.
-	 * @param newDateTime The new date and time value to set for the "DateTimeOriginal" tag.
-	 * @return {@code true} if the modification was successful, {@code false} otherwise.
-	 * @throws FileNotFoundException If the JPEG image file or the destination file is not found.
-	 * @throws IOException If an I/O error occurs while reading or writing the files.
+	 * @param dest          The destination file where the modified image will be
+	 *                      saved.
+	 * @param newDateTime   The new date and time value to set for the
+	 *                      "DateTimeOriginal" tag.
+	 * @return {@code true} if the modification was successful, {@code false}
+	 *         otherwise.
+	 * @throws FileNotFoundException If the JPEG image file or the destination file
+	 *                               is not found.
+	 * @throws IOException           If an I/O error occurs while reading or writing
+	 *                               the files.
 	 */
-    private static boolean changeDateTimeOrig(byte[] jpegImageFile,Path dest, String newDateTime) throws FileNotFoundException, IOException
-    {
-    	JpegImageMetadata jpegMetadata = shouldAdjustExif(jpegImageFile);
-    	if (jpegMetadata == null)
-    		return false;
-    	
-        try (OutputStream fos = Files.newOutputStream(dest);
-                OutputStream os = new BufferedOutputStream(fos)) 
-        {          
-            TiffImageMetadata exif = jpegMetadata.getExif();
+	private static boolean changeDateTimeOrig(byte[] jpegImageFile, Path dest, String newDateTime)
+			throws FileNotFoundException, IOException {
+		JpegImageMetadata jpegMetadata = shouldAdjustExif(jpegImageFile);
+		if (jpegMetadata == null)
+			return false;
 
-            TiffOutputSet outputSet = null;
-            if (null != exif) {               
-                outputSet = exif.getOutputSet();
-            }            
-          
-            if (null == outputSet) {
-                outputSet = new TiffOutputSet();
-            }
+		try (OutputStream fos = Files.newOutputStream(dest); OutputStream os = new BufferedOutputStream(fos)) {
+			TiffImageMetadata exif = jpegMetadata.getExif();
 
-            TiffOutputDirectory exifDirectory = outputSet.getOrCreateExifDirectory();                
-            exifDirectory.removeField(ExifTagConstants.EXIF_TAG_DATE_TIME_ORIGINAL);
-            exifDirectory.add(ExifTagConstants.EXIF_TAG_DATE_TIME_ORIGINAL,newDateTime);
-            new ExifRewriter().updateExifMetadataLossless(jpegImageFile, os,outputSet);            
-        } 
-        catch (ImageWriteException | ImageReadException e) 
-        {
-			logger.error("Error adjusting EXIF data",e);
+			TiffOutputSet outputSet = null;
+			if (null != exif) {
+				outputSet = exif.getOutputSet();
+			}
+
+			if (null == outputSet) {
+				outputSet = new TiffOutputSet();
+			}
+
+			TiffOutputDirectory exifDirectory = outputSet.getOrCreateExifDirectory();
+			exifDirectory.removeField(ExifTagConstants.EXIF_TAG_DATE_TIME_ORIGINAL);
+			exifDirectory.add(ExifTagConstants.EXIF_TAG_DATE_TIME_ORIGINAL, newDateTime);
+			new ExifRewriter().updateExifMetadataLossless(jpegImageFile, os, outputSet);
+		} catch (ImageWriteException | ImageReadException e) {
+			logger.error("Error adjusting EXIF data", e);
 			return false;
 		}
-        
-        return true;
-    }
-    
-    private static boolean isEligibleMediaFile(Path file)
-    {
-    	if (Files.isDirectory(file) || Files.isSymbolicLink(file))
-            return false;
 
-        String fileExt = getFileExtension(file.getFileName().toString()).toLowerCase();
+		return true;
+	}
 
-        boolean isImage = imageExtensions.contains(fileExt);
-        boolean isAudio = audioExtensions.contains(fileExt);
-        boolean isVideo = videoExtensions.contains(fileExt);
+	private static boolean isEligibleMediaFile(Path file) {
+		if (Files.isDirectory(file) || Files.isSymbolicLink(file))
+			return false;
 
-        return isImage || isAudio || isVideo;
-    }
-    
-    private void moveFile(Path from,Path to) throws IOException
-    {
-    	if (msc.isUseSymbolicLinks())
-			Files.createSymbolicLink(to,from);
-		else
-		{
-			if (Files.exists(to))
-			{
+		String fileExt = getFileExtension(file.getFileName().toString()).toLowerCase();
+
+		boolean isImage = imageExtensions.contains(fileExt);
+		boolean isAudio = audioExtensions.contains(fileExt);
+		boolean isVideo = videoExtensions.contains(fileExt);
+
+		return isImage || isAudio || isVideo;
+	}
+
+	private void moveFile(Path from, Path to) throws IOException {
+		if (msc.isUseSymbolicLinks())
+			Files.createSymbolicLink(to, from);
+		else {
+			if (Files.exists(to)) {
 				logger.error(to + " already exists!! Source file left in original location.");
 				return;
 			}
 			Files.move(from, to);
 		}
-    }
-    
-    private Path createDirIfNotExists(Path path) throws IOException
-    {
-    	return Files.createDirectories(path);
-    }
-    
-    public static String getFileExtension(String fileName)
-    {
-        int dotIndex = fileName.lastIndexOf('.');
-        return (dotIndex == -1) ? "" : fileName.substring(dotIndex + 1);
-    }
-    
-    private void transcodeVideo(Path file,Path parentDir) throws IOException
-    {
-    	long fileSizeInBytes = Files.size(file);
-	    long fileSizeInMB = fileSizeInBytes / (1024 * 1024);
-	    String fileName = file.getFileName().toString();
-	    if (fileSizeInMB > MAX_ML_UPLOAD_SIZE_VIDEO) 
-	     {
-	    	 String outputFileName = fileName.replaceFirst("[.][^.]+$", "") + TRANSCODED_VIDEO_SUFFIX + ".mp4";		    	 
-	    	 Path outputFile = file.getParent().resolve(outputFileName);
-	    	 Path finalOutputFile = parentDir.resolve(outputFileName);
-	    	 if (Files.notExists(outputFile) && Files.notExists(finalOutputFile))
-	    	 {
-		    	 logger.info(fileName + " too large for ML upload, transcoding with ffmpeg...");
-		    	 String convVideoPath = parentDir + File.separator + outputFileName;
-		    	 String[] command = {"ffmpeg", "-i", file.toString(), "-map_metadata", "0:s:0", "-c:v", "libx264", "-crf", "22", "-preset", "medium", "-c:a", "aac", "-b:a", "128k", "-movflags", "+faststart", "-max_muxing_queue_size", "1024", convVideoPath};
-		        
-		         ProcessBuilder pb = new ProcessBuilder(command);
-		         pb.redirectError(ProcessBuilder.Redirect.DISCARD);
-		         pb.redirectOutput(ProcessBuilder.Redirect.DISCARD);
-		         
-		         try
-		         {
-       	         process = pb.start();
-       	         int res = process.waitFor();
-       	         if (res == 0)
-       	            logger.info("Saved converted video to: " + convVideoPath);
-		         }			        
-	    	 	catch (InterruptedException | IOException e) {
-       	        logger.error("Cannot transcode video to smaller size", e);
-       	    }
-		        finally 
-		        {
-		             if (process != null) {
-		                 process.destroy();
-		             }
-		         }
-	     	}
-	     }
-    }
-	
-    private void checkMetadataAndMove(Path file,Path outputDir,Long hrsOffset,Set<String> subIds,boolean sepYearDir,FolderGroup folderGroup) throws IOException
-	{
+	}
+
+	private Path createDirIfNotExists(Path path) throws IOException {
+		return Files.createDirectories(path);
+	}
+
+	public static String getFileExtension(String fileName) {
+		int dotIndex = fileName.lastIndexOf('.');
+		return (dotIndex == -1) ? "" : fileName.substring(dotIndex + 1);
+	}
+
+	private void transcodeVideo(Path file, Path parentDir) throws IOException {
+		long fileSizeInBytes = Files.size(file);
+		long fileSizeInMB = fileSizeInBytes / (1024 * 1024);
+		String fileName = file.getFileName().toString();
+		if (fileSizeInMB > MAX_ML_UPLOAD_SIZE_VIDEO) {
+			String outputFileName = fileName.replaceFirst("[.][^.]+$", "") + TRANSCODED_VIDEO_SUFFIX + ".mp4";
+			Path outputFile = file.getParent().resolve(outputFileName);
+			Path finalOutputFile = parentDir.resolve(outputFileName);
+			if (Files.notExists(outputFile) && Files.notExists(finalOutputFile)) {
+				logger.info(fileName + " too large for ML upload, transcoding with ffmpeg...");
+				String convVideoPath = parentDir + File.separator + outputFileName;
+				String[] command = { "ffmpeg", "-i", file.toString(), "-map_metadata", "0:s:0", "-c:v", "libx264",
+						"-crf", "22", "-preset", "medium", "-c:a", "aac", "-b:a", "128k", "-movflags", "+faststart",
+						"-max_muxing_queue_size", "1024", convVideoPath };
+
+				ProcessBuilder pb = new ProcessBuilder(command);
+				pb.redirectError(ProcessBuilder.Redirect.DISCARD);
+				pb.redirectOutput(ProcessBuilder.Redirect.DISCARD);
+
+				try {
+					process = pb.start();
+					int res = process.waitFor();
+					if (res == 0)
+						logger.info("Saved converted video to: " + convVideoPath);
+				} catch (InterruptedException | IOException e) {
+					logger.error("Cannot transcode video to smaller size", e);
+				} finally {
+					if (process != null) {
+						process.destroy();
+					}
+				}
+			}
+		}
+	}
+
+	private void checkMetadataAndMove(Path file, Path outputDir, Long hrsOffset, Set<String> subIds, boolean sepYearDir,
+			FolderGroup folderGroup) throws IOException {
 		LocalDateTime mediaTime = null;
-		for (CreationDateProvider cdp:creationDateProviders)
-		{
-			mediaTime = cdp.findCreationDate(file,hrsOffset);
+		for (CreationDateProvider cdp : creationDateProviders) {
+			mediaTime = cdp.findCreationDate(file, hrsOffset);
 			if (mediaTime != null)
 				break;
 		}
@@ -304,167 +316,154 @@ public class MediaSortTask extends Task<Path>
 		Path grandParentDir = outputDir;
 		if (sepYearDir)
 			grandParentDir = grandParentDir.resolve(Path.of(String.valueOf(mediaTime.getYear())));
-		
+
 		String subId = null;
-		if (mediaTime != null)					
-			subId =	rangeMap.get(mediaTime);
-		
+		if (mediaTime != null)
+			subId = rangeMap.get(mediaTime);
+
 		String mediaDateStr = mediaTime.format(folderDtf);
-		
+
 		Path parentDir = grandParentDir;
-		if (subId != null)
-		{
+		if (subId != null) {
 			SubStats ss = checklistStatsMap.get(subId);
-			
-			String locNameAbbrev = StringUtils.abbreviate(ss.getLocName(),StringUtils.EMPTY,40);
-			locNameAbbrev = StringUtils.replaceEach(locNameAbbrev,invalidChars,validChars);
-			
+
+			String locNameAbbrev = StringUtils.abbreviate(ss.getLocName(), StringUtils.EMPTY, 40);
+			locNameAbbrev = StringUtils.replaceEach(locNameAbbrev, invalidChars, validChars);
+
 			String folderNameInfo = StringUtils.EMPTY;
 			switch (folderGroup) {
-			    case location:
-			    	parentDir = parentDir.resolve(ss.getSubnational1Code());
-			        if (ss.getCounty() != null)
-			        	parentDir = parentDir.resolve(ss.getCounty());
-			        folderNameInfo = mediaDateStr;
-			        parentDir = parentDir.resolve(locNameAbbrev);			        
-			        break;
-	
-			    case date:
-			    	parentDir = parentDir.resolve(mediaDateStr);			    	
-			    	folderNameInfo = ss.getSubnational1Code() + "_" + ss.getCounty() + "_" + locNameAbbrev;
-			        break;
-	
-			    default:
-			        break;
+			case location:
+				parentDir = parentDir.resolve(ss.getSubnational1Code());
+				if (ss.getCounty() != null)
+					parentDir = parentDir.resolve(ss.getCounty());
+				folderNameInfo = mediaDateStr;
+				parentDir = parentDir.resolve(locNameAbbrev);
+				break;
+
+			case date:
+				parentDir = parentDir.resolve(mediaDateStr);
+				folderNameInfo = ss.getSubnational1Code() + "_" + ss.getCounty() + "_" + locNameAbbrev;
+				break;
+
+			default:
+				break;
 			}
-			
-			String folderName = folderNameInfo + "_" + subId;	
+
+			String folderName = folderNameInfo + "_" + subId;
 			parentDir = parentDir.resolve(folderName);
-			
+
 			subIds.add(subId);
 			ss.incNumAssetsLocal();
-		}
-		else
+		} else
 			parentDir = parentDir.resolve(mediaDateStr);
-		
-		createDirIfNotExists(parentDir);		
-		
-		
+
+		createDirIfNotExists(parentDir);
+
 		String fileName = file.getFileName().toString();
 		Path outputFile = parentDir.resolve(fileName);
-		
+
 		String fileExt = getFileExtension(fileName).toLowerCase();
 		boolean isImage = imageExtensions.contains(fileExt);
 		logger.debug("Processing " + file);
-		if (hrsOffset != 0l && isImage)
-		{
-			String newDateTime = mediaTime.format(imageDtf);			
-			if (changeDateTimeOrig(Files.readAllBytes(file),outputFile,newDateTime))
-			{
+		if (hrsOffset != 0l && isImage) {
+			String newDateTime = mediaTime.format(imageDtf);
+			if (changeDateTimeOrig(Files.readAllBytes(file), outputFile, newDateTime)) {
 				logger.debug("Adjusted EXIF date of " + file + " to " + newDateTime);
 				Files.delete(file);
 				return;
 			}
 		}
-		
+
 		if (msc.isTranscodeVideos() && fileExt.equals("mp4") && !fileName.contains(TRANSCODED_VIDEO_SUFFIX))
-			transcodeVideo(file,parentDir);
-			
-		moveFile(file,outputFile);
-	}	
-	
+			transcodeVideo(file, parentDir);
+
+		moveFile(file, outputFile);
+	}
+
 	/**
-	 * Executes the main logic of the media processing task. This method is called when the task is executed.
-	 * @return The path to the generated index file, or null if no eligible media files are found.
+	 * Executes the main logic of the media processing task. This method is called
+	 * when the task is executed.
+	 * 
+	 * @return The path to the generated index file, or null if no eligible media
+	 *         files are found.
 	 * @throws Exception If an error occurs during the execution of the task.
 	 */
 	@Override
-	protected Path call() throws Exception 
-	{
+	protected Path call() throws Exception {
 		if (msc.getCsvFile() != null)
-			parseCsv(msc.getCsvFile());		
-		
-		Path mediaPath = Path.of(msc.getMediaPath());	
-		
-		//make output directory inside the provided media folder
+			parseCsv(msc.getCsvFile());
+
+		Path mediaPath = Path.of(msc.getMediaPath());
+
+		// make output directory inside the provided media folder
 		String outputDirName = OUTPUT_FOLDER_NAME + "_" + new Date().getTime();
 		Path outputDir = mediaPath.resolve(outputDirName);
-		
+
 		Set<String> subIds = new TreeSet<>();
-		Long hrsOffset= msc.getHrsOffset();
-		
+		Long hrsOffset = msc.getHrsOffset();
+
 		AtomicInteger i = new AtomicInteger(0);
 		List<Path> eligibleFiles = new ArrayList<>();
 		logger.info("Analyzing files...");
 
 		try (Stream<Path> stream = Files.walk(mediaPath)) {
-			stream.filter(MediaSortTask::isEligibleMediaFile)
-		    .forEach(file -> {
-		                eligibleFiles.add(file);
-		                i.incrementAndGet();
-			            if (i.get() % 100 == 0)
-			                logger.info("Added 100 files to processing queue (" + i + " total)...");
-		    });
+			stream.filter(MediaSortTask::isEligibleMediaFile).forEach(file -> {
+				eligibleFiles.add(file);
+				i.incrementAndGet();
+				if (i.get() % 100 == 0)
+					logger.info("Added 100 files to processing queue (" + i + " total)...");
+			});
 		}
-		
-		if (eligibleFiles.isEmpty())
-		{
+
+		if (eligibleFiles.isEmpty()) {
 			logger.info("No eligible media files found.");
 			return null;
 		}
-		
+
 		boolean sepYearDir = msc.isSepYear();
 		int numFiles = eligibleFiles.size();
-		int j=1;
+		int j = 1;
 		logger.info("Processing " + numFiles + " files in " + mediaPath + " and subdirectories...");
-		for (Path f:eligibleFiles)
-		{
-			checkMetadataAndMove(f,outputDir,hrsOffset,subIds,sepYearDir,msc.getFolderGroup());
-			final double progPer = j++/((double)numFiles);
-			updateProgress(progPer,1.0);
+		for (Path f : eligibleFiles) {
+			checkMetadataAndMove(f, outputDir, hrsOffset, subIds, sepYearDir, msc.getFolderGroup());
+			final double progPer = j++ / ((double) numFiles);
+			updateProgress(progPer, 1.0);
 		}
-		
-		//Move all files out of temp parent directory we created
-		if (!msc.isCreateParentDir())
-		{
+
+		// Move all files out of temp parent directory we created
+		if (!msc.isCreateParentDir()) {
 			List<Path> dirToMove = new ArrayList<>();
-			try (Stream<Path> stream = Files.walk(outputDir,1)) 
-			{
+			try (Stream<Path> stream = Files.walk(outputDir, 1)) {
 				stream.filter(path -> !path.equals(outputDir)) // Skip moving the source directory itself
-                .forEach(path -> 
-                {
-                	dirToMove.add(path);
-             });}
-			
-			for (Path directory : dirToMove) 
-			{
+						.forEach(path -> {
+							dirToMove.add(path);
+						});
+			}
+
+			for (Path directory : dirToMove) {
 				if (!Files.exists(directory))
 					continue;
-				
+
 				Path newPath = mediaPath.resolve(outputDir.relativize(directory));
-	            Files.move(directory, newPath, StandardCopyOption.ATOMIC_MOVE);
-	        }
-            
+				Files.move(directory, newPath, StandardCopyOption.ATOMIC_MOVE);
+			}
+
 			Files.delete(outputDir);
-	    }
-		else
-		{
+		} else {
 			Path finalOutputDir = mediaPath.resolve(OUTPUT_FOLDER_NAME);
 			if (Files.exists(finalOutputDir))
 				logger.error("Directory " + finalOutputDir + " already exists! Check " + outputDir + " for results.");
 			else
-				Files.move(outputDir,finalOutputDir, StandardCopyOption.ATOMIC_MOVE);
+				Files.move(outputDir, finalOutputDir, StandardCopyOption.ATOMIC_MOVE);
 		}
-		
+
 		Path indexPath = null;
-		if (!subIds.isEmpty())
-		{
+		if (!subIds.isEmpty()) {
 			indexPath = mediaPath.resolve("checklistIndex_" + new Date().getTime() + ".csv");
-			try (BufferedWriter bw = Files.newBufferedWriter(indexPath,StandardCharsets.UTF_8,StandardOpenOption.CREATE))
-			{
+			try (BufferedWriter bw = Files.newBufferedWriter(indexPath, StandardCharsets.UTF_8,
+					StandardOpenOption.CREATE)) {
 				bw.write("Checklist Link,Date,State,County,Num Uploaded Assets,Num Local Assets\n");
-				for (String subId:subIds)
-				{
+				for (String subId : subIds) {
 					SubStats ss = checklistStatsMap.get(subId);
 					bw.write("https://ebird.org/checklist/" + subId + "/media,");
 					bw.write(ss.getDate() + ",");
@@ -473,18 +472,18 @@ public class MediaSortTask extends Task<Path>
 					bw.write(ss.getNumAssetsUploaded() + ",");
 					bw.write(ss.getNumAssetsLocal() + "\n");
 				}
-			}			
-		}	
-		
-		updateProgress(1.0,1.0);
-		
+			}
+		}
+
+		updateProgress(1.0, 1.0);
+
 		logger.info("ALL DONE! :-)");
 		return indexPath;
-		
+
 	}
 
 	public Process getProcess() {
 		return process;
 	}
-	
+
 }

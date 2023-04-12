@@ -2,6 +2,7 @@ package fun.seabird;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class SubStats 
 {
@@ -12,8 +13,8 @@ public class SubStats
 	private final String county;
 	private final String locName;
 
-	private int numAssetsUploaded = 0;
-	private int numAssetsLocal = 0;		
+	private AtomicInteger numAssetsUploaded = new AtomicInteger(0);
+	private AtomicInteger numAssetsLocal = new AtomicInteger(0);
 
 	public SubStats(LocalDateTime date, String subnational1Code, String county,String locName) {
 		super();
@@ -24,15 +25,15 @@ public class SubStats
 	}
 
 	public Integer getNumAssetsLocal() {
-		return numAssetsLocal;
+		return numAssetsLocal.get();
 	}
 
-	public void incNumAssetsLocal() {
-		this.numAssetsLocal++;
+	public int incNumAssetsLocal() {
+		return numAssetsLocal.incrementAndGet();
 	}
 	
-	public void incNumAssetsUploaded(int amount) {
-		this.numAssetsUploaded += amount;
+	public int incNumAssetsUploaded(int amount) {
+		return numAssetsUploaded.addAndGet(amount);
 	}
 
 	public String getDate() {
@@ -40,7 +41,7 @@ public class SubStats
 	}
 
 	public int getNumAssetsUploaded() {
-		return numAssetsUploaded;
+		return numAssetsUploaded.get();
 	}
 
 	public static DateTimeFormatter getIndexdtf() {
