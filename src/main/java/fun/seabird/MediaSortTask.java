@@ -21,6 +21,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -28,6 +29,7 @@ import java.util.stream.Stream;
 
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
+import org.apache.commons.csv.CSVPrinter;
 import org.apache.commons.csv.CSVRecord;
 import org.apache.commons.imaging.ImageReadException;
 import org.apache.commons.imaging.ImageWriteException;
@@ -66,24 +68,27 @@ public class MediaSortTask extends Task<Path> {
 	public static final Set<String> imageExtensions = Set.of("jpg", "jpeg", "png", "crx", "crw", "cr2", "cr3", "crm",
 			"arw", "nef", "orf", "raf");
 
-	static final String OUTPUT_FOLDER_NAME = "ebird";
+	public static final String OUTPUT_FOLDER_NAME = "ebird";
 
-	static final long MAX_ML_UPLOAD_SIZE_VIDEO = 250l;
-	static final String TRANSCODED_VIDEO_SUFFIX = "_s";
+	private static final long MAX_ML_UPLOAD_SIZE_VIDEO = 250l;
+	private static final String TRANSCODED_VIDEO_SUFFIX = "_s";
 
-	final String[] invalidChars = new String[] { " ", ":", ",", ".", "/", "\\", ">", "<" };
-	final String[] validChars = new String[] { "-", "--", "-", "-", "-", "-", "-", "-" };
+	private static final String[] invalidChars = new String[] { " ", ":", ",", ".", "/", "\\", ">", "<" };
+	private static final String[] validChars = new String[] { "-", "--", "-", "-", "-", "-", "-", "-" };
 
-	private final List<CreationDateProvider> creationDateProviders = List.of(new ExifCreationDateProvider(),
+	private static final List<CreationDateProvider> creationDateProviders = List.of(new ExifCreationDateProvider(),
 			new FileNameCreationDateProvider(), new FileModifiedCreationDateProvider());
-	private final ReadWriteLock rangeMapLock = new ReentrantReadWriteLock();
-	private final RangeMap<LocalDateTime, String> rangeMap = TreeRangeMap.create();
-	private final Map<String, SubStats> checklistStatsMap = new ConcurrentSkipListMap<>();
+	
+	//eBird CSV fields
+	private static final int CSV_BATCH_SIZE = 50000;
+	private static final ReadWriteLock rangeMapLock = new ReentrantReadWriteLock();
+	private static final RangeMap<LocalDateTime, String> rangeMap = TreeRangeMap.create();
+	private static final Map<String, SubStats> checklistStatsMap = new ConcurrentSkipListMap<>();
+	private static final AtomicInteger linesProcessed = new AtomicInteger(0);
+	
 	private final MediaSortCmd msc;
 
-	private transient Process process;
-
-	private static final int CSV_BATCH_SIZE = 50000;
+	private transient Process process;	
 
 	public MediaSortTask(MediaSortCmd msc) {
 		this.msc = msc;
@@ -95,9 +100,12 @@ public class MediaSortTask extends Task<Path> {
 	 * 
 	 * @param record The CSV record to be parsed.
 	 */
-	private void parseCsvLine(CSVRecord record) {
+	private void parseCsvLine(CSVRecord record) 
+	{
 		if (record.getRecordNumber() == 1l)
 			return; // skip the header
+		
+		linesProcessed.incrementAndGet();
 
 		long duration = 0;
 		String durationStr = record.get(14);
@@ -141,6 +149,12 @@ public class MediaSortTask extends Task<Path> {
 		}
 	}
 
+	/**
+	 * Parses eBird CSV file using Apache Commons CSV library, and processes each line in parallel.
+	 * 
+	 * @param csvFile The path to the CSV file to be parsed.
+	 * @throws IOException If an I/O error occurs while reading the CSV file.
+	 */
 	public void parseCsv(Path csvFile) throws IOException {
 		logger.info("Parsing " + csvFile + "...");
 
@@ -155,7 +169,7 @@ public class MediaSortTask extends Task<Path> {
 					.block();
 
 			stopwatch.stop();
-			logger.info("Parsed eBird data in " + stopwatch);
+			logger.info("Parsed " + linesProcessed.get() + " eBird observations in " + stopwatch.getTime(TimeUnit.SECONDS) + " seconds");
 		}
 	}
 
@@ -390,10 +404,17 @@ public class MediaSortTask extends Task<Path> {
 	 */
 	@Override
 	protected Path call() throws Exception {
-		if (msc.getCsvFile() != null)
+		if (msc.getCsvFile() != null && msc.isReParseCsv())
+		{
+			rangeMap.clear();
+			checklistStatsMap.clear();
+			linesProcessed.set(0);
+			
 			parseCsv(msc.getCsvFile());
+			msc.setReParseCsv(false);			
+		}
 
-		Path mediaPath = Path.of(msc.getMediaPath());
+		Path mediaPath = msc.getMediaPath();
 
 		// make output directory inside the provided media folder
 		String outputDirName = OUTPUT_FOLDER_NAME + "_" + new Date().getTime();
@@ -456,29 +477,27 @@ public class MediaSortTask extends Task<Path> {
 			else
 				Files.move(outputDir, finalOutputDir, StandardCopyOption.ATOMIC_MOVE);
 		}
-
-		Path indexPath = null;
-		if (!subIds.isEmpty()) {
-			indexPath = mediaPath.resolve("checklistIndex_" + new Date().getTime() + ".csv");
-			try (BufferedWriter bw = Files.newBufferedWriter(indexPath, StandardCharsets.UTF_8,
-					StandardOpenOption.CREATE)) {
-				bw.write("Checklist Link,Date,State,County,Num Uploaded Assets,Num Local Assets\n");
-				for (String subId : subIds) {
-					SubStats ss = checklistStatsMap.get(subId);
-					bw.write("https://ebird.org/checklist/" + subId + "/media,");
-					bw.write(ss.getDate() + ",");
-					bw.write(ss.getSubnational1Code() + ",");
-					bw.write(ss.getCounty() + ",");
-					bw.write(ss.getNumAssetsUploaded() + ",");
-					bw.write(ss.getNumAssetsLocal() + "\n");
-				}
-			}
-		}
-
+		
+		Path resultsFile = null;
+        if (!subIds.isEmpty()) {
+        	resultsFile = mediaPath.resolve("checklistIndex_" + new Date().getTime() + ".csv");
+            try (BufferedWriter bw = Files.newBufferedWriter(resultsFile, StandardCharsets.UTF_8,StandardOpenOption.CREATE);
+                 CSVPrinter csvPrinter = new CSVPrinter(bw, CSVFormat.DEFAULT.builder().setHeader("Checklist Link", "Date", "State", "County", "Num Uploaded Assets", "Num Local Assets").build())) 
+            {
+                for (String subId : subIds) {
+                    SubStats ss = checklistStatsMap.get(subId);
+                    csvPrinter.printRecord("https://ebird.org/checklist/" + subId + "/media",ss.getDate(), ss.getSubnational1Code(), ss.getCounty(),ss.getNumAssetsUploaded(), ss.getNumAssetsLocal());
+                }
+                csvPrinter.flush();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+        
 		updateProgress(1.0, 1.0);
 
 		logger.info("ALL DONE! :-)");
-		return indexPath;
+		return resultsFile;
 
 	}
 

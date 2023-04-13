@@ -4,9 +4,11 @@ import java.nio.file.Path;
 
 public class MediaSortCmd 
 {	
-	private String mediaPath;
+	private Path mediaPath;
 	private Long hrsOffset = 0l;
+	
 	private Path csvFile;
+	private boolean reParseCsv=true;
 	
 	private boolean sepYear = false;	
 	private boolean transcodeVideos = false;
@@ -27,13 +29,7 @@ public class MediaSortCmd
 	}
 	public void setSepYear(boolean sepYear) {
 		this.sepYear = sepYear;
-	}
-	public String getMediaPath() {
-		return mediaPath;
-	}
-	public void setMediaPath(String mediaPath) {
-		this.mediaPath = mediaPath;
-	}
+	}	
 	public Path getCsvFile() {
 		return csvFile;
 	}
@@ -63,6 +59,18 @@ public class MediaSortCmd
 	}
 	public void setTranscodeVideos(boolean transcodeVideos) {
 		this.transcodeVideos = transcodeVideos;
+	}
+	public Path getMediaPath() {
+		return mediaPath;
+	}
+	public void setMediaPath(Path mediaPath) {
+		this.mediaPath = mediaPath;
+	}
+	public boolean isReParseCsv() {
+		return reParseCsv;
+	}
+	public void setReParseCsv(boolean reParseCsv) {
+		this.reParseCsv = reParseCsv;
 	}
 	
 }

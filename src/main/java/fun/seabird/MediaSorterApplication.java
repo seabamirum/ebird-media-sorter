@@ -4,6 +4,7 @@ import java.awt.Desktop;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.ResourceBundle;
 
 import fun.seabird.MediaSortCmd.FolderGroup;
 import javafx.application.Application;
@@ -27,56 +28,46 @@ import javafx.stage.Stage;
 
 public class MediaSorterApplication extends Application 
 {
-	private static String titleText = "eBird Media Sorter";	
+	private static final int FRAME_WIDTH = 650;
+	private static final int FRAME_HEIGHT = 800;
 	
-	private static int FRAME_WIDTH = 650;
-	private static int FRAME_HEIGHT = 800;
+	private static final String UI_PROPERTIES_FILE_BASE = "ui";
+		
+	private static final ExtensionFilter csvFilter = new ExtensionFilter("CSV Files","*.csv");
 	
-	private static String introText = "Welcome! Choose your media directory, eBird CSV file, options, and press run.";	
-	private static String subDirText = "Create Subdirectory";
-	private static String browseBtnText = "Choose Media Directory";
-	private static String resBtnText = "See Results!";
-	private static String exifAdjText = "EXIF Adjustment (0 hours)";
-	private static String csvBtnText = "Choose MyEBirdData CSV File";
-	private static String sepYearText = "Create Parent Folders by Year";
-	private static String locSortText = "Create Subfolders by Location";
-	private static String symbLinkText = "Generate Symbolic Links Instead of Moving Files"; 
-	private static String runBtnText = "Run"; 
-	private static String transcodeVidText = "Transcode large video (.mp4) files";
-	
-	private ExtensionFilter csvFilter = new ExtensionFilter("CSV Files","*.csv");
-	
-	public static final TextArea OUTPUT_LOG = new TextArea();	
+	static final TextArea OUTPUT_LOG = new TextArea();	
 	
 	@Override
 	public void start(Stage s) throws Exception 
 	{	
-		s.setTitle(titleText);
+		ResourceBundle msgs = ResourceBundle.getBundle(UI_PROPERTIES_FILE_BASE);
+		
+		s.setTitle(msgs.getString("titleText"));
 		
 		final MediaSortCmd msc = new MediaSortCmd();
 		final MediaSortResult msr = new MediaSortResult();
 		
-		Label introLbl = new Label(introText);
+		Label introLbl = new Label(msgs.getString("introText"));
 		
-		Button browseBut = new Button(browseBtnText);
+		Button browseBut = new Button(msgs.getString("browseBtnText"));
 		Label browseButLbl = new Label();
 		
-		Label offsetLbl = new Label(exifAdjText);		
+		Label offsetLbl = new Label(msgs.getString("exifAdjText"));		
 		Slider offsetSlider = new Slider(-6,6,0);		
 		offsetSlider.setSnapToTicks(true);
 		offsetSlider.setMajorTickUnit(1);
 		
-		Button csvBrowse = new Button(csvBtnText);
+		Button csvBrowse = new Button(msgs.getString("csvBtnText"));
 		Label csvBrowseLbl = new Label();
 		
-		CheckBox locSortCb = new CheckBox(locSortText);
-		CheckBox sepYearDirCb = new CheckBox(sepYearText);
-		CheckBox parentDirCb = new CheckBox(subDirText);
+		CheckBox locSortCb = new CheckBox(msgs.getString("locSortText"));
+		CheckBox sepYearDirCb = new CheckBox(msgs.getString("sepYearText"));
+		CheckBox parentDirCb = new CheckBox(msgs.getString("subDirText"));
 		parentDirCb.setSelected(true);
-		CheckBox symbLinkCb = new CheckBox(symbLinkText);		
-		CheckBox transcodeVidCb = new CheckBox(transcodeVidText);
+		CheckBox symbLinkCb = new CheckBox(msgs.getString("symbLinkText"));		
+		CheckBox transcodeVidCb = new CheckBox(msgs.getString("transcodeVidText"));
 		
-		Button runBut = new Button(runBtnText);
+		Button runBut = new Button(msgs.getString("runBtnText"));
 		runBut.setDisable(true);
 		
 		ProgressBar pb = new ProgressBar(0.0);
@@ -88,7 +79,7 @@ public class MediaSorterApplication extends Application
 		ScrollPane scroll = new ScrollPane (OUTPUT_LOG);
 		scroll.setVisible(false);
 		
-		Button resBtn = new Button(resBtnText);
+		Button resBtn = new Button(msgs.getString("resBtnText"));
 		resBtn.setDisable(true);
 		resBtn.setVisible(false);		
 		
@@ -101,10 +92,10 @@ public class MediaSorterApplication extends Application
 				if (selectedFile != null)
 				{
 					String path = selectedFile.getPath();
-		        	msc.setMediaPath(path);
+		        	msc.setMediaPath(selectedFile.toPath());
 		        	browseButLbl.setText(path);
 		        	runBut.setDisable(false);			        	
-		        	parentDirCb.setText(subDirText + " " + msc.getMediaPath() + File.separator + MediaSortTask.OUTPUT_FOLDER_NAME);
+		        	parentDirCb.setText(msgs.getString("subDirText") + " " + msc.getMediaPath().resolve(MediaSortTask.OUTPUT_FOLDER_NAME));
 				}
 		   }
 		);
@@ -123,7 +114,7 @@ public class MediaSorterApplication extends Application
 				}
 				else
 				{
-					offsetLbl.setText(exifAdjText);
+					offsetLbl.setText(msgs.getString("exifAdjText"));
 					symbLinkCb.setDisable(false);
 				}
 				
@@ -140,6 +131,7 @@ public class MediaSorterApplication extends Application
 			
 			if (f != null)
 			{
+				msc.setReParseCsv(true);
 				msc.setCsvFile(f.toPath()); 
 				csvBrowseLbl.setText(f.getPath());
 			}
