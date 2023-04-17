@@ -155,7 +155,7 @@ public class MediaSortTask extends Task<Path> {
 	 * @param csvFile The path to the CSV file to be parsed.
 	 * @throws IOException If an I/O error occurs while reading the CSV file.
 	 */
-	public void parseCsv(Path csvFile) throws IOException {
+	private void parseCsv(Path csvFile) throws IOException {
 		logger.info("Parsing " + csvFile + "...");
 
 		try (Reader fileReader = Files.newBufferedReader(csvFile);
