@@ -358,7 +358,7 @@ public class MediaSortTask extends Task<Path> {
 			rangeMap.clear();
 			checklistStatsMap.clear();
 			
-			EbirdCsvParser.parseCsv(msc.getCsvFile(),ParseMode.parallel,PreSort.none,this::parseCsvLine);
+			EbirdCsvParser.parseCsv(msc.getCsvFile(),this::parseCsvLine,ParseMode.MULTI_THREAD,PreSort.NONE);
 			
 			msc.setReParseCsv(false);			
 		}
