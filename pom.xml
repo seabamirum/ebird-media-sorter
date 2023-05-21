@@ -130,7 +130,7 @@
   	<dependency>
   		<groupId>fun.seabird</groupId>
   		<artifactId>ebird-csv-parser</artifactId>
-  		<version>0.0.1-SNAPSHOT</version>
+  		<version>0.0.1</version>
   	</dependency>
   </dependencies>    
   
