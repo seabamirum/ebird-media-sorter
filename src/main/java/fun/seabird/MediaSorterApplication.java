@@ -37,6 +37,64 @@ public class MediaSorterApplication extends Application
 	
 	static final TextArea OUTPUT_LOG = new TextArea();	
 	
+	/**
+	Executes a media sort task when the "Run" button is clicked.
+	Disables the "Run" and "Reset" buttons, and shows a progress bar and scroll bar.
+	Clears the output log and creates a new media sort task.
+	Binds the progress property of the progress bar to the progress property of the media sort task.
+	Starts the media sort task on a separate thread.
+	When the media sort task is successful, enables the "Reset" button and sets its visibility to true.
+	Sets the index path of the media sorter to the value returned by the media sort task.
+	If the index path is not null and the desktop is supported, enables the "Reset" button and sets its visibility to true.
+	Adds a shutdown hook to wait for the media sort task process to finish and destroy it if necessary.
+	* @param runBut the button that triggers the media sorting task
+    * @param resBtn the button that displays the results of the media sorting task
+    * @param pb the progress bar that displays the progress of the media sorting task
+    * @param scroll  the scroll pane that contains the media sorting task output log
+    * @param msc the media sorting configuration to be used for the task
+    * @param msr the media sorting results to be updated after the task completes
+	*/
+	private void runMediaSortTask(Button runBut, Button resBtn, ProgressBar pb, ScrollPane scroll, MediaSortCmd msc, MediaSortResult msr) 
+	{
+	    runBut.setDisable(true);
+	    resBtn.setDisable(true);
+	    resBtn.setVisible(false);
+	    pb.setVisible(true);
+	    scroll.setVisible(true);
+
+	    OUTPUT_LOG.clear();
+
+	    MediaSortTask task = new MediaSortTask(msc);
+
+	    pb.progressProperty().bind(task.progressProperty());
+
+	    Thread taskThr = new Thread(task);
+	    taskThr.setDaemon(true);
+	    taskThr.start();
+
+	    task.setOnSucceeded(success -> {
+	        Path path = task.getValue();
+	        runBut.setDisable(false);
+
+	        msr.setIndexPath(path);
+	        if (msr.getIndexPath() != null && Desktop.isDesktopSupported()) {
+	            resBtn.setDisable(false);
+	            resBtn.setVisible(true);
+	        }
+	    });
+
+	    Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+	        if (task.getProcess() != null) {
+	            try {
+	                task.getProcess().waitFor();
+	            } catch (InterruptedException e) {
+	                e.printStackTrace();
+	            }
+	            task.getProcess().destroy();
+	        }
+	    }));
+	}
+	
 	@Override
 	public void start(Stage s) throws Exception 
 	{	
@@ -166,53 +224,9 @@ public class MediaSorterApplication extends Application
 		transcodeVidCb.setOnAction(event ->
 		{
 				msc.setTranscodeVideos(transcodeVidCb.isSelected());				
-		});
+		});		
 		
-		runBut.setOnAction(event ->
-		{
-			runBut.setDisable(true);
-			resBtn.setDisable(true);
-			resBtn.setVisible(false);			
-			pb.setVisible(true);
-			scroll.setVisible(true);
-			
-			OUTPUT_LOG.clear();	
-			
-			MediaSortTask task = new MediaSortTask(msc);
-			
-			pb.progressProperty().bind(task.progressProperty());
-			
-			Thread taskThr = new Thread(task);
-			taskThr.setDaemon(true);			
-		    taskThr.start();
-		    
-		    task.setOnSucceeded(success ->
-		    {
-			    Path path = task.getValue();			
-				runBut.setDisable(false);
-				
-			    msr.setIndexPath(path);
-				if (msr.getIndexPath() != null && Desktop.isDesktopSupported())
-				{
-					resBtn.setDisable(false);
-					resBtn.setVisible(true);
-				}
-		    });		 
-		    
-		    Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-			    if (task.getProcess() != null)
-			    {
-			    	try {
-						task.getProcess().waitFor();
-					} catch (InterruptedException e) {
-						e.printStackTrace();
-					}
-			        task.getProcess().destroy();
-			    }
-			}));
-		}
-		
-		);
+		runBut.setOnAction(event -> runMediaSortTask(runBut, resBtn, pb, scroll, msc, msr));
 		
 		resBtn.setOnAction(event ->
 		{

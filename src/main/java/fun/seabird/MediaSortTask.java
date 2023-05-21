@@ -6,7 +6,6 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.io.Reader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -21,16 +20,13 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.ConcurrentSkipListMap;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.stream.Stream;
 
 import org.apache.commons.csv.CSVFormat;
-import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVPrinter;
-import org.apache.commons.csv.CSVRecord;
 import org.apache.commons.imaging.ImageReadException;
 import org.apache.commons.imaging.ImageWriteException;
 import org.apache.commons.imaging.Imaging;
@@ -43,7 +39,6 @@ import org.apache.commons.imaging.formats.tiff.constants.ExifTagConstants;
 import org.apache.commons.imaging.formats.tiff.write.TiffOutputDirectory;
 import org.apache.commons.imaging.formats.tiff.write.TiffOutputSet;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.lang3.time.StopWatch;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -51,15 +46,14 @@ import com.google.common.collect.Range;
 import com.google.common.collect.RangeMap;
 import com.google.common.collect.TreeRangeMap;
 
+import fun.seabird.EbirdCsvParser.ParseMode;
+import fun.seabird.EbirdCsvParser.PreSort;
 import fun.seabird.MediaSortCmd.FolderGroup;
 import javafx.concurrent.Task;
-import reactor.core.publisher.Flux;
-import reactor.core.scheduler.Schedulers;
 
 public class MediaSortTask extends Task<Path> {
 	private static final Logger logger = LoggerFactory.getLogger(MediaSortTask.class);
 
-	private static final DateTimeFormatter csvDtf = DateTimeFormatter.ofPattern("yyyy-MM-dd hh:mm a");
 	private static final DateTimeFormatter imageDtf = DateTimeFormatter.ofPattern("yyyy:MM:dd HH:mm:ss");
 	private static final DateTimeFormatter folderDtf = DateTimeFormatter.ofPattern("yyyy-MM-dd");
 
@@ -80,11 +74,9 @@ public class MediaSortTask extends Task<Path> {
 			new FileNameCreationDateProvider(), new FileModifiedCreationDateProvider());
 	
 	//eBird CSV fields
-	private static final int CSV_BATCH_SIZE = 50000;
 	private static final ReadWriteLock rangeMapLock = new ReentrantReadWriteLock();
 	private static final RangeMap<LocalDateTime, String> rangeMap = TreeRangeMap.create();
 	private static final Map<String, SubStats> checklistStatsMap = new ConcurrentSkipListMap<>();
-	private static final AtomicInteger linesProcessed = new AtomicInteger(0);
 	
 	private final MediaSortCmd msc;
 
@@ -100,37 +92,22 @@ public class MediaSortTask extends Task<Path> {
 	 * 
 	 * @param record The CSV record to be parsed.
 	 */
-	private void parseCsvLine(CSVRecord record) 
+	private void parseCsvLine(EbirdCsvRow row) 
 	{
-		if (record.getRecordNumber() == 1l)
-			return; // skip the header
-		
-		linesProcessed.incrementAndGet();
-
-		long duration = 0;
-		String durationStr = record.get(14);
-		if (StringUtils.isNotBlank(durationStr))
-			duration = Long.parseLong(durationStr);
-
+		int duration = row.getDuration();
 		if (duration <= 0)
 			return;
-
-		String obsTimeStr = record.get(12);
-
-		if (StringUtils.isBlank(obsTimeStr))
+		
+		if (row.getTime() == null)
 			return;
 
-		String subId = record.get(0);
-		if (!checklistStatsMap.containsKey(subId)) {
-			String obsDtStr = record.get(11);
-			String subnational1Code = record.get(5);
-			String county = record.get(6);
-			String locName = record.get(8);
+		String subId = row.getSubId();
+		if (!checklistStatsMap.containsKey(subId)) {			
 
-			LocalDateTime subBeginTime = LocalDateTime.parse(obsDtStr + " " + obsTimeStr, csvDtf);
+			LocalDateTime subBeginTime = row.getDate().atTime(row.getTime());
 			LocalDateTime subEndTime = subBeginTime.plusMinutes(duration);
 
-			checklistStatsMap.putIfAbsent(subId, new SubStats(subBeginTime, subnational1Code, county, locName));
+			checklistStatsMap.putIfAbsent(subId, new SubStats(subBeginTime,row.getSubnat1Code(),row.getSubnat2Name(),row.getLocName()));
 
 			rangeMapLock.writeLock().lock();
 			try {
@@ -140,38 +117,10 @@ public class MediaSortTask extends Task<Path> {
 			}
 		}
 
-		if (record.size() > 22) {
-			String assets = record.get(22);
-			if (StringUtils.isNotBlank(assets)) {
-				int numMLAssetsForObs = 1 + StringUtils.countMatches(assets, ' ');
-				checklistStatsMap.get(subId).incNumAssetsUploaded(numMLAssetsForObs);
-			}
-		}
+		if (!row.getAssetIds().isEmpty())
+			checklistStatsMap.get(subId).incNumAssetsUploaded(row.getAssetIds().size());			
 	}
 
-	/**
-	 * Parses eBird CSV file using Apache Commons CSV library, and processes each line in parallel.
-	 * 
-	 * @param csvFile The path to the CSV file to be parsed.
-	 * @throws IOException If an I/O error occurs while reading the CSV file.
-	 */
-	private void parseCsv(Path csvFile) throws IOException {
-		logger.info("Parsing " + csvFile + "...");
-
-		try (Reader fileReader = Files.newBufferedReader(csvFile);
-				CSVParser csvParser = new CSVParser(fileReader,
-						CSVFormat.DEFAULT.builder().setSkipHeaderRecord(true).build())) {
-
-			StopWatch stopwatch = StopWatch.createStarted();
-
-			Flux.fromIterable(csvParser).parallel() // Enable parallel processing
-					.runOn(Schedulers.parallel()).doOnNext(this::parseCsvLine).sequential(CSV_BATCH_SIZE).then()
-					.block();
-
-			stopwatch.stop();
-			logger.info("Parsed " + linesProcessed.get() + " eBird observations in " + stopwatch.getTime(TimeUnit.SECONDS) + " seconds");
-		}
-	}
 
 	/**
 	 * @param jpegImageFile
@@ -408,9 +357,9 @@ public class MediaSortTask extends Task<Path> {
 		{
 			rangeMap.clear();
 			checklistStatsMap.clear();
-			linesProcessed.set(0);
 			
-			parseCsv(msc.getCsvFile());
+			EbirdCsvParser.parseCsv(msc.getCsvFile(),ParseMode.parallel,PreSort.none,this::parseCsvLine);
+			
 			msc.setReParseCsv(false);			
 		}
 
