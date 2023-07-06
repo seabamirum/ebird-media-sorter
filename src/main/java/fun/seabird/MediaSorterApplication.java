@@ -54,7 +54,7 @@ public class MediaSorterApplication extends Application
     * @param msc the media sorting configuration to be used for the task
     * @param msr the media sorting results to be updated after the task completes
 	*/
-	private void runMediaSortTask(Button runBut, Button resBtn, ProgressBar pb, ScrollPane scroll, MediaSortCmd msc, MediaSortResult msr) 
+	private static void runMediaSortTask(Button runBut, Button resBtn, ProgressBar pb, ScrollPane scroll, MediaSortCmd msc, MediaSortResult msr) 
 	{
 	    runBut.setDisable(true);
 	    resBtn.setDisable(true);

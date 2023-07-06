@@ -104,7 +104,7 @@ public class MediaSortTask extends Task<Path> {
 		String subId = row.getSubId();
 		if (!checklistStatsMap.containsKey(subId)) {			
 
-			LocalDateTime subBeginTime = row.getDate().atTime(row.getTime());
+			LocalDateTime subBeginTime = row.dateTime();
 			LocalDateTime subEndTime = subBeginTime.plusMinutes(duration);
 
 			checklistStatsMap.putIfAbsent(subId, new SubStats(subBeginTime,row.getSubnat1Code(),row.getSubnat2Name(),row.getLocName()));
@@ -223,7 +223,7 @@ public class MediaSortTask extends Task<Path> {
 		}
 	}
 
-	private Path createDirIfNotExists(Path path) throws IOException {
+	private static Path createDirIfNotExists(Path path) throws IOException {
 		return Files.createDirectories(path);
 	}
 
@@ -232,6 +232,13 @@ public class MediaSortTask extends Task<Path> {
 		return (dotIndex == -1) ? "" : fileName.substring(dotIndex + 1);
 	}
 
+	/**
+
+	Transcodes the video file to a smaller size if it exceeds the maximum ML upload size.
+	@param file The path to the video file to transcode.
+	@param parentDir The directory where the transcoded video file will be saved.
+	@throws IOException If an I/O error occurs during the transcoding process.
+	*/
 	private void transcodeVideo(Path file, Path parentDir) throws IOException {
 		long fileSizeInBytes = Files.size(file);
 		long fileSizeInMB = fileSizeInBytes / (1024 * 1024);
@@ -267,6 +274,17 @@ public class MediaSortTask extends Task<Path> {
 		}
 	}
 
+	/**
+	 * Checks the metadata of a file and moves it to the appropriate directory based on the metadata information.
+	 *
+	 * @param file         The file to check and move.
+	 * @param outputDir    The output directory where the file will be moved.
+	 * @param hrsOffset    The hour offset for adjusting creation date.
+	 * @param subIds       A set to store the unique subIds encountered.
+	 * @param sepYearDir   Flag indicating whether to separate files into year directories.
+	 * @param folderGroup  The folder grouping mode.
+	 * @throws IOException If an I/O error occurs while performing the operation.
+	 */
 	private void checkMetadataAndMove(Path file, Path outputDir, Long hrsOffset, Set<String> subIds, boolean sepYearDir,
 			FolderGroup folderGroup) throws IOException {
 		LocalDateTime mediaTime = null;
@@ -372,7 +390,7 @@ public class MediaSortTask extends Task<Path> {
 		Set<String> subIds = new TreeSet<>();
 		Long hrsOffset = msc.getHrsOffset();
 
-		AtomicInteger i = new AtomicInteger(0);
+		AtomicInteger i = new AtomicInteger();
 		List<Path> eligibleFiles = new ArrayList<>();
 		logger.info("Analyzing files...");
 
