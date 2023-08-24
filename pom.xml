@@ -49,7 +49,7 @@
 	<dependency>
 	    <groupId>com.google.guava</groupId>
 	    <artifactId>guava</artifactId>
-	    <version>32.1.1-jre</version>
+	    <version>32.1.2-jre</version>
 	</dependency>
 
 	<!-- https://mvnrepository.com/artifact/com.drewnoakes/metadata-extractor -->
@@ -63,7 +63,7 @@
 	<dependency>
 	    <groupId>org.apache.commons</groupId>
 	    <artifactId>commons-lang3</artifactId>
-	    <version>3.12.0</version>
+	    <version>3.13.0</version>
 	</dependency>
 	
 	<dependency>
@@ -83,14 +83,14 @@
 <dependency>
     <groupId>org.openjfx</groupId>
     <artifactId>javafx-base</artifactId>
-    <version>20.0.1</version>
+    <version>20.0.2</version>
 </dependency>
 
 <!-- https://mvnrepository.com/artifact/org.openjfx/javafx-controls -->
 <dependency>
     <groupId>org.openjfx</groupId>
     <artifactId>javafx-controls</artifactId>
-    <version>20.0.1</version>
+    <version>20.0.2</version>
 </dependency>
 
 <!-- https://mvnrepository.com/artifact/org.slf4j/slf4j-api -->
@@ -104,21 +104,21 @@
 <dependency>
     <groupId>ch.qos.logback</groupId>
     <artifactId>logback-core</artifactId>
-    <version>1.4.8</version>
+    <version>1.4.11</version>
 </dependency>
 
 <!-- https://mvnrepository.com/artifact/ch.qos.logback/logback-classic -->
 <dependency>
     <groupId>ch.qos.logback</groupId>
     <artifactId>logback-classic</artifactId>
-    <version>1.4.8</version>
+    <version>1.4.11</version>
 </dependency>
 
 <!-- https://mvnrepository.com/artifact/io.projectreactor/reactor-core -->
 <dependency>
     <groupId>io.projectreactor</groupId>
     <artifactId>reactor-core</artifactId>
-    <version>3.5.7</version>
+    <version>3.5.9</version>
 </dependency>
 
 <dependency>
@@ -126,6 +126,7 @@
     <artifactId>commons-csv</artifactId>
     <version>1.10.0</version>
 </dependency>
+
 
   	<dependency>
   		<groupId>fun.seabird</groupId>

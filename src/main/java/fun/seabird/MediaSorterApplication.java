@@ -160,25 +160,16 @@ public class MediaSorterApplication extends Application
 			
 		offsetSlider.valueProperty().addListener((observable, oldValue, newValue) ->
 		{
-				int offset = newValue.intValue();
-				msc.setHrsOffset(Long.valueOf(offset));
-				
-				if (offset != 0)
-				{
-					msc.setUseSymbolicLinks(false);
-					symbLinkCb.setSelected(false);
-					symbLinkCb.setDisable(true);
-					offsetLbl.setText("EXIF Adjustment (" + offset + " hours)");
-				}
-				else
-				{
-					offsetLbl.setText(msgs.getString("exifAdjText"));
-					symbLinkCb.setDisable(false);
-				}
-				
-				offsetSlider.setValue(newValue.doubleValue());
-		}
-		);	
+			int offset = newValue.intValue();
+			msc.setHrsOffset(Long.valueOf(offset));
+			
+			if (offset != 0)
+				offsetLbl.setText("EXIF Adjustment (" + offset + " hours)");
+			else
+				offsetLbl.setText(msgs.getString("exifAdjText"));
+			
+			offsetSlider.setValue(newValue.doubleValue());
+		});	
 		
 		csvBrowse.setOnAction(event ->
 		{
