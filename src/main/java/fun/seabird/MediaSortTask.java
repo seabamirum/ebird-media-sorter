@@ -380,18 +380,13 @@ public class MediaSortTask extends Task<Path> {
 			return;
 		}
 		
-		boolean isImage = imageExtensions.contains(fileExt);
-		if (!isImage)
-			return;
-		
-		if (hrsOffset != 0l && isImage) {
+		boolean isImage = imageExtensions.contains(fileExt);		
+		if (isImage && hrsOffset != 0l) {
 			String newDateTime = findCreationDt(file,hrsOffset).format(imageDtf);
 			if (changeDateTimeOrig(file, newDateTime)) {
 				logger.debug("Adjusted EXIF date of " + file + " to " + newDateTime);
 			}
-		}
-		
-		//adjustImage(file);
+		}		
 	}
 	
 	private static Path writeResults(Set<String> subIds, Path mediaPath)
@@ -477,7 +472,7 @@ public class MediaSortTask extends Task<Path> {
 			updateProgress(progPer, 1.0);
 		}
 		
-		logger.info("Finishing up...");
+		logger.info("Finishing up...(may take a while if adjusting EXIF)");
 		for (Path f : movedFiles)
 			afterMove(f,hrsOffset);
 
