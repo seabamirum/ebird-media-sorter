@@ -4,9 +4,9 @@ This program organizes photos, audio, and video files on your file system by dat
 # Usage
 
 1. Download your eBird data from https://ebird.org/downloadMyData and extract the CSV file<br/>
-2. Download a (non-headless) Java JRE, minimum Version 17 if it's not already installed. To check current installation status and what version you have, open a command prompt and type `java -version`. Newer versions can be obtained using the following<br/>
-    - Windows/Mac: From https://jdk.java.net/17/<br/>
-    - Linux: from command line run `sudo apt install openjdk-17-jre`<br/>
+2. Download a (non-headless) Java JRE, minimum Version 21 if it's not already installed. To check current installation status and what version you have, open a command prompt and type `java -version`. Newer versions can be obtained using the following<br/>
+    - Windows/Mac: From https://jdk.java.net/21/<br/>
+    - Linux: from command line run `sudo apt install openjdk-21-jre`<br/>
 3. Browse to [RELEASES](../../releases) in this repo and download the latest `ebird-media-sorter-[version].jar` file
 4. Open a command prompt and switch to the directory (e.g. `cd C:/downloads`) that has your downloaded JAR file<br/>
 5. Run the program by typing in the command prompt: `java -jar ebird-media-sorter-[version].jar`<br/>
