@@ -1,7 +1,6 @@
 package fun.seabird;
 
 import java.io.BufferedOutputStream;
-import java.io.BufferedWriter;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -15,7 +14,8 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
-import java.util.Map;
+import java.util.SequencedMap;
+import java.util.SequencedSet;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.ConcurrentSkipListMap;
@@ -26,8 +26,6 @@ import java.util.stream.Stream;
 
 import javax.annotation.Nullable;
 
-import org.apache.commons.csv.CSVFormat;
-import org.apache.commons.csv.CSVPrinter;
 import org.apache.commons.imaging.ImageReadException;
 import org.apache.commons.imaging.ImageWriteException;
 import org.apache.commons.imaging.Imaging;
@@ -47,7 +45,7 @@ import com.google.common.collect.Range;
 import com.google.common.collect.RangeMap;
 import com.google.common.collect.TreeRangeMap;
 
-import fun.seabird.EbirdCsvParser.ParseMode;
+import de.siegmar.fastcsv.writer.CsvWriter;
 import fun.seabird.EbirdCsvParser.PreSort;
 import fun.seabird.MediaSortCmd.FolderGroup;
 import javafx.concurrent.Task;
@@ -65,7 +63,7 @@ public class MediaSortTask extends Task<Path> {
 	private static final DateTimeFormatter imageDtf = DateTimeFormatter.ofPattern("yyyy:MM:dd HH:mm:ss");
 	private static final DateTimeFormatter folderDtf = DateTimeFormatter.ofPattern("yyyy-MM-dd");	
 
-	private static final long MAX_ML_UPLOAD_SIZE_VIDEO = 250l;
+	private static final long MAX_ML_UPLOAD_SIZE_VIDEO = 1000l;
 	private static final String TRANSCODED_VIDEO_SUFFIX = "_s";
 
 	private static final String[] invalidChars = new String[] { " ", ":", ",", ".", "/", "\\", ">", "<" };
@@ -77,8 +75,8 @@ public class MediaSortTask extends Task<Path> {
 	//eBird CSV fields
 	private static final ReadWriteLock rangeMapLock = new ReentrantReadWriteLock();
 	private static final RangeMap<LocalDateTime, String> rangeMap = TreeRangeMap.create();
-	private static final Map<String, SubStats> checklistStatsMap = new ConcurrentSkipListMap<>();
-	private static final Set<String> subIds = new TreeSet<>();
+	private static final SequencedMap<String, SubStats> checklistStatsMap = new ConcurrentSkipListMap<>();
+	private static final SequencedSet<String> subIds = new TreeSet<>();
 	
 	private final MediaSortCmd msc;
 	
@@ -292,22 +290,22 @@ public class MediaSortTask extends Task<Path> {
 
 		String folderNameInfo = StringUtils.EMPTY;
 		switch (folderGroup) {
-		case location:
-			destDir = destDir.resolve(ss.getSubnational1Code());
-			if (ss.getCounty() != null)
-				destDir = destDir.resolve(ss.getCounty());
-			folderNameInfo = mediaDateStr;
-			
-			destDir = destDir.resolve(locNameAbbrev);
-			break;
-
-		case date:
-			destDir = destDir.resolve(mediaDateStr);
-			folderNameInfo = ss.getSubnational1Code() + "_" + ss.getCounty() + "_" + locNameAbbrev;
-			break;
-
-		default:
-			break;
+			case location:
+				destDir = destDir.resolve(ss.getSubnational1Code());
+				if (ss.getCounty() != null)
+					destDir = destDir.resolve(ss.getCounty());
+				folderNameInfo = mediaDateStr;
+				
+				destDir = destDir.resolve(locNameAbbrev);
+				break;
+	
+			case date:
+				destDir = destDir.resolve(mediaDateStr);
+				folderNameInfo = ss.getSubnational1Code() + "_" + ss.getCounty() + "_" + locNameAbbrev;
+				break;
+	
+			default:
+				break;
 		}
 
 		String folderName = folderNameInfo + "_" + subId;
@@ -389,23 +387,25 @@ public class MediaSortTask extends Task<Path> {
 		}		
 	}
 	
-	private static Path writeResults(Set<String> subIds, Path mediaPath)
+	@SuppressWarnings("resource")
+	private static Path writeResults(Path mediaPath)
 	{
 		if (subIds.isEmpty())
 			return null;
 		
 		Path resultsFile = mediaPath.resolve("checklistIndex_" + new Date().getTime() + ".csv");
-	        try (BufferedWriter bw = Files.newBufferedWriter(resultsFile, StandardCharsets.UTF_8,StandardOpenOption.CREATE);
-	             CSVPrinter csvPrinter = new CSVPrinter(bw, CSVFormat.DEFAULT.builder().setHeader("Checklist Link", "Date", "State", "County", "Num Uploaded Assets", "Num Local Assets").build())) 
-	        {
-	            for (String subId : subIds) {
-	                SubStats ss = checklistStatsMap.get(subId);
-	                csvPrinter.printRecord("https://ebird.org/checklist/" + subId + "/media",ss.getDate(), ss.getSubnational1Code(), ss.getCounty(),ss.getNumAssetsUploaded(), ss.getNumAssetsLocal());
-	            }
-	            csvPrinter.flush();
-	        } catch (IOException e) {
-	            e.printStackTrace();
-	        }
+		
+        try (CsvWriter csvWriter = CsvWriter.builder().build(resultsFile,StandardCharsets.UTF_8,StandardOpenOption.CREATE))
+        {
+        	csvWriter.writeRecord("Checklist Link", "Date", "State", "County", "Num Uploaded Assets", "Num Local Assets");
+        	
+            for (String subId : subIds) {
+                SubStats ss = checklistStatsMap.get(subId);                
+                csvWriter.writeRecord("https://ebird.org/checklist/" + subId + "/media",ss.getDate(), ss.getSubnational1Code(), ss.getCounty(),String.valueOf(ss.getNumAssetsUploaded()),String.valueOf(ss.getNumAssetsLocal()));
+            }
+        } catch (IOException e) {
+            logger.error("Error writing CSV!",e);
+        }
 	        
 	    return resultsFile;
 	}
@@ -426,7 +426,7 @@ public class MediaSortTask extends Task<Path> {
 			checklistStatsMap.clear();
 			subIds.clear();
 			
-			EbirdCsvParser.parseCsv(msc.getCsvFile(),this::parseCsvLine,ParseMode.MULTI_THREAD,PreSort.NONE);
+			EbirdCsvParser.parseCsv(msc.getCsvFile(),this::parseCsvLine,PreSort.NONE);
 			
 			msc.setReParseCsv(false);			
 		}
@@ -454,6 +454,7 @@ public class MediaSortTask extends Task<Path> {
 
 		if (eligibleFiles.isEmpty()) {
 			logger.info("No eligible media files found.");
+			updateProgress(1.0, 1.0);
 			return null;
 		}
 
@@ -472,7 +473,7 @@ public class MediaSortTask extends Task<Path> {
 			updateProgress(progPer, 1.0);
 		}
 		
-		logger.info("Finishing up...(may take a while if adjusting EXIF)");
+		logger.info("Finishing up..." + (hrsOffset == 0l ? "" : "(may take a while)"));
 		for (Path f : movedFiles)
 			afterMove(f,hrsOffset);
 
@@ -501,7 +502,7 @@ public class MediaSortTask extends Task<Path> {
 				Files.move(outputDir, finalOutputDir, StandardCopyOption.ATOMIC_MOVE);
 		}		
 		
-		Path resultsFile = writeResults(subIds,mediaPath);
+		Path resultsFile = writeResults(mediaPath);
         
         logger.info("Deleting empty directories...");
         cleanEmptyDirectories(mediaPath);
