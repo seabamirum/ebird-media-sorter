@@ -26,8 +26,6 @@ import java.util.stream.Stream;
 
 import javax.annotation.Nullable;
 
-import org.apache.commons.imaging.ImageReadException;
-import org.apache.commons.imaging.ImageWriteException;
 import org.apache.commons.imaging.Imaging;
 import org.apache.commons.imaging.common.ImageMetadata;
 import org.apache.commons.imaging.common.ImageMetadata.ImageMetadataItem;
@@ -131,7 +129,7 @@ public class MediaSortTask extends Task<Path> {
 		ImageMetadata metadata;
 		try {
 			metadata = Imaging.getMetadata(jpegImageFile);
-		} catch (ImageReadException | IOException e) {
+		} catch (IOException e) {
 			e.printStackTrace();
 			return null;
 		}
@@ -160,8 +158,6 @@ public class MediaSortTask extends Task<Path> {
 			return false;
 
 		ByteArrayOutputStream baos = new ByteArrayOutputStream();
-
-		try {
 			TiffImageMetadata exif = jpegMetadata.getExif();
 			TiffOutputSet outputSet = exif != null ? exif.getOutputSet() : new TiffOutputSet();
 			TiffOutputDirectory exifDirectory = outputSet.getOrCreateExifDirectory();
@@ -174,10 +170,6 @@ public class MediaSortTask extends Task<Path> {
 			try (OutputStream os = new BufferedOutputStream(Files.newOutputStream(imageFile))) {
 				os.write(baos.toByteArray());
 			}
-		} catch (ImageWriteException | ImageReadException e) {
-			logger.error("Error adjusting EXIF data", e);
-			return false;
-		}
 
 		return true;
 	}
