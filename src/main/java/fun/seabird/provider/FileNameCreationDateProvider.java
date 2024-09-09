@@ -1,4 +1,4 @@
-package fun.seabird;
+package fun.seabird.provider;
 
 import java.nio.file.Path;
 import java.time.LocalDateTime;

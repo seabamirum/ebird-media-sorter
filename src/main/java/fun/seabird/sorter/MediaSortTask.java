@@ -1,4 +1,4 @@
-package fun.seabird;
+package fun.seabird.sorter;
 
 import java.io.BufferedOutputStream;
 import java.io.ByteArrayOutputStream;
@@ -13,15 +13,12 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.SequencedMap;
 import java.util.SequencedSet;
-import java.util.Set;
 import java.util.TreeSet;
-import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.stream.Stream;
 
 import javax.annotation.Nullable;
@@ -44,19 +41,18 @@ import com.google.common.collect.RangeMap;
 import com.google.common.collect.TreeRangeMap;
 
 import de.siegmar.fastcsv.writer.CsvWriter;
+import fun.seabird.EbirdCsvParser;
 import fun.seabird.EbirdCsvParser.PreSort;
-import fun.seabird.MediaSortCmd.FolderGroup;
+import fun.seabird.EbirdCsvRow;
+import fun.seabird.provider.CreationDateProvider;
+import fun.seabird.provider.ExifCreationDateProvider;
+import fun.seabird.provider.FileModifiedCreationDateProvider;
+import fun.seabird.provider.FileNameCreationDateProvider;
+import fun.seabird.util.MediaSortConstants;
 import javafx.concurrent.Task;
 
 public class MediaSortTask extends Task<Path> {
-	
-	static final Set<String> audioExtensions = Set.of("wav", "mp3", "m4a");
-	static final Set<String> videoExtensions = Set.of("mov", "m4v", "mp4");
-	static final Set<String> imageExtensions = Set.of("jpg", "jpeg", "png", "crx", "crw", "cr2", "cr3", "crm",
-			"arw", "nef", "orf", "raf");
-
-	static final String OUTPUT_FOLDER_NAME = "ebird";
-	
+		
 	private static final Logger logger = LoggerFactory.getLogger(MediaSortTask.class);
 	private static final DateTimeFormatter imageDtf = DateTimeFormatter.ofPattern("yyyy:MM:dd HH:mm:ss");
 	private static final DateTimeFormatter folderDtf = DateTimeFormatter.ofPattern("yyyy-MM-dd");	
@@ -71,9 +67,8 @@ public class MediaSortTask extends Task<Path> {
 			new FileNameCreationDateProvider(), new FileModifiedCreationDateProvider());	
 	
 	//eBird CSV fields
-	private static final ReadWriteLock rangeMapLock = new ReentrantReadWriteLock();
 	private static final RangeMap<LocalDateTime, String> rangeMap = TreeRangeMap.create();
-	private static final SequencedMap<String, SubStats> checklistStatsMap = new ConcurrentSkipListMap<>();
+	private static final SequencedMap<String, SubStats> checklistStatsMap = new LinkedHashMap<>();
 	private static final SequencedSet<String> subIds = new TreeSet<>();
 	
 	private final MediaSortCmd msc;
@@ -106,17 +101,12 @@ public class MediaSortTask extends Task<Path> {
 			LocalDateTime subEndTime = subBeginTime.plusMinutes(duration);
 
 			checklistStatsMap.putIfAbsent(subId, new SubStats(subBeginTime,row.getSubnat1Code(),row.getSubnat2Name(),row.getLocName()));
-
-			rangeMapLock.writeLock().lock();
-			try {
-				rangeMap.put(Range.closed(subBeginTime, subEndTime), subId);
-			} finally {
-				rangeMapLock.writeLock().unlock();
-			}
+			rangeMap.put(Range.closed(subBeginTime, subEndTime), subId);
 		}
 
-		if (!row.getAssetIds().isEmpty())
-			checklistStatsMap.get(subId).incNumAssetsUploaded(row.getAssetIds().size());			
+		var assetIds = row.getAssetIds();
+		if (!assetIds.isEmpty())
+			checklistStatsMap.get(subId).incNumAssetsUploaded(assetIds.size());			
 	}
 
 
@@ -180,9 +170,9 @@ public class MediaSortTask extends Task<Path> {
 
 		String fileExt = getFileExtension(file.getFileName().toString()).toLowerCase();
 
-		boolean isImage = imageExtensions.contains(fileExt);
-		boolean isAudio = audioExtensions.contains(fileExt);
-		boolean isVideo = videoExtensions.contains(fileExt);
+		boolean isImage = MediaSortConstants.imageExtensions.contains(fileExt);
+		boolean isAudio = MediaSortConstants.audioExtensions.contains(fileExt);
+		boolean isVideo = MediaSortConstants.videoExtensions.contains(fileExt);
 
 		return isImage || isAudio || isVideo;
 	}
@@ -370,7 +360,7 @@ public class MediaSortTask extends Task<Path> {
 			return;
 		}
 		
-		boolean isImage = imageExtensions.contains(fileExt);		
+		boolean isImage = MediaSortConstants.imageExtensions.contains(fileExt);		
 		if (isImage && hrsOffset != 0l) {
 			String newDateTime = findCreationDt(file,hrsOffset).format(imageDtf);
 			if (changeDateTimeOrig(file, newDateTime)) {
@@ -426,7 +416,7 @@ public class MediaSortTask extends Task<Path> {
 		Path mediaPath = msc.getMediaPath();
 
 		// make output directory inside the provided media folder
-		String outputDirName = OUTPUT_FOLDER_NAME + "_" + new Date().getTime();
+		String outputDirName = MediaSortConstants.OUTPUT_FOLDER_NAME + "_" + new Date().getTime();
 		Path outputDir = mediaPath.resolve(outputDirName);
 
 		Long hrsOffset = msc.getHrsOffset();
@@ -487,7 +477,7 @@ public class MediaSortTask extends Task<Path> {
 
 			Files.delete(outputDir);
 		} else {
-			Path finalOutputDir = mediaPath.resolve(OUTPUT_FOLDER_NAME);
+			Path finalOutputDir = mediaPath.resolve(MediaSortConstants.OUTPUT_FOLDER_NAME);
 			if (Files.exists(finalOutputDir))
 				logger.error("Directory " + finalOutputDir + " already exists! Check " + outputDir + " for results.");
 			else

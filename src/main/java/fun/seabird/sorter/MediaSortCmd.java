@@ -1,4 +1,4 @@
-package fun.seabird;
+package fun.seabird.sorter;
 
 import java.nio.file.Path;
 
@@ -16,8 +16,6 @@ public class MediaSortCmd
 	private boolean useSymbolicLinks = false;
 	private FolderGroup folderGroup = FolderGroup.date;	
 
-	enum FolderGroup {location,date}
-	
 	public Long getHrsOffset() {
 		return hrsOffset;
 	}

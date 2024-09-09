@@ -1,4 +1,4 @@
-package fun.seabird;
+package fun.seabird.provider;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -16,6 +16,9 @@ import com.drew.metadata.exif.ExifSubIFDDirectory;
 import com.drew.metadata.mov.media.QuickTimeMediaDirectory;
 import com.drew.metadata.mp4.Mp4Directory;
 import com.drew.metadata.wav.WavDirectory;
+
+import fun.seabird.sorter.MediaSortTask;
+import fun.seabird.util.MediaSortConstants;
 
 public class ExifCreationDateProvider implements CreationDateProvider
 {
@@ -56,9 +59,9 @@ public class ExifCreationDateProvider implements CreationDateProvider
 		String fileName = f.getFileName().toString();
 		String fileExt = MediaSortTask.getFileExtension(fileName).toLowerCase();		
 		
-		boolean isImage = MediaSortTask.imageExtensions.contains(fileExt);
-		boolean isAudio= MediaSortTask.audioExtensions.contains(fileExt);
-		boolean isVideo = MediaSortTask.videoExtensions.contains(fileExt);
+		boolean isImage = MediaSortConstants.imageExtensions.contains(fileExt);
+		boolean isAudio= MediaSortConstants.audioExtensions.contains(fileExt);
+		boolean isVideo = MediaSortConstants.videoExtensions.contains(fileExt);
 		
 		Metadata metadata = null;		
 		try(InputStream mediaStream = Files.newInputStream(f))

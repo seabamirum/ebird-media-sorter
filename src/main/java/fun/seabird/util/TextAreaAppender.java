@@ -1,7 +1,8 @@
-package fun.seabird;
+package fun.seabird.util;
 
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.AppenderBase;
+import fun.seabird.app.MediaSorterApplication;
 import javafx.application.Platform;
 import javafx.scene.control.TextArea;
 

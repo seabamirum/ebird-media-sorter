@@ -1,4 +1,4 @@
-package fun.seabird;
+package fun.seabird.app;
 
 import java.awt.Desktop;
 import java.io.File;
@@ -6,7 +6,11 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ResourceBundle;
 
-import fun.seabird.MediaSortCmd.FolderGroup;
+import fun.seabird.sorter.FolderGroup;
+import fun.seabird.sorter.MediaSortCmd;
+import fun.seabird.sorter.MediaSortResult;
+import fun.seabird.sorter.MediaSortTask;
+import fun.seabird.util.MediaSortConstants;
 import javafx.application.Application;
 import javafx.geometry.Insets;
 import javafx.scene.Scene;
@@ -35,7 +39,7 @@ public class MediaSorterApplication extends Application
 		
 	private static final ExtensionFilter csvFilter = new ExtensionFilter("CSV Files","*.csv");
 	
-	static final TextArea OUTPUT_LOG = new TextArea();	
+	public static final TextArea OUTPUT_LOG = new TextArea();	
 	
 	/**
 	Executes a media sort task when the "Run" button is clicked.
@@ -153,7 +157,7 @@ public class MediaSorterApplication extends Application
 		        	msc.setMediaPath(selectedFile.toPath());
 		        	browseButLbl.setText(path);
 		        	runBut.setDisable(false);			        	
-		        	parentDirCb.setText(msgs.getString("subDirText") + " " + msc.getMediaPath().resolve(MediaSortTask.OUTPUT_FOLDER_NAME));
+		        	parentDirCb.setText(msgs.getString("subDirText") + " " + msc.getMediaPath().resolve(MediaSortConstants.OUTPUT_FOLDER_NAME));
 				}
 		   }
 		);

@@ -1,10 +1,10 @@
-package fun.seabird;
+package fun.seabird.sorter;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.concurrent.atomic.AtomicInteger;
 
-public class SubStats 
+class SubStats 
 {
 	private static final DateTimeFormatter indexDtf = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 	
