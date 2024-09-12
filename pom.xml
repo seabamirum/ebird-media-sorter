@@ -21,7 +21,7 @@
         <configuration>
         	<archive>
             <manifest>
-                <mainClass>fun.seabird.MediaSorter</mainClass>
+                <mainClass>fun.seabird.app.MediaSorter</mainClass>
             </manifest>
           </archive>
           <descriptorRefs>
