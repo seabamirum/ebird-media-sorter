@@ -8,10 +8,10 @@ import org.apache.commons.lang3.StringUtils;
 
 public class FileNameCreationDateProvider implements CreationDateProvider 
 {
-	static final DateTimeFormatter recForgeDtf1 = DateTimeFormatter.ofPattern("yyyyMMdd_HHmm");
-	static final DateTimeFormatter recForgeDtf2 = DateTimeFormatter.ofPattern("yyyyMMdd-HHmm");
-	static final DateTimeFormatter merlinOldDtf = DateTimeFormatter.ofPattern("yyyy-MM-dd HHmm");
-	static final DateTimeFormatter merlinNewDtf = DateTimeFormatter.ofPattern("yyyy-MM-dd HH_mm");
+	private static final DateTimeFormatter recForgeDtf1 = DateTimeFormatter.ofPattern("yyyyMMdd_HHmm");
+	private static final DateTimeFormatter recForgeDtf2 = DateTimeFormatter.ofPattern("yyyyMMdd-HHmm");
+	private static final DateTimeFormatter merlinOldDtf = DateTimeFormatter.ofPattern("yyyy-MM-dd HHmm");
+	private static final DateTimeFormatter merlinNewDtf = DateTimeFormatter.ofPattern("yyyy-MM-dd HH_mm");
 	
 	@Override
 	/**
@@ -31,7 +31,7 @@ public class FileNameCreationDateProvider implements CreationDateProvider
 	public LocalDateTime findCreationDate(Path f,Long hrsOffset)
 	{
 		String fileName = f.getFileName().toString();
-		String dateTimeOrigStr = StringUtils.left(fileName,14);
+		String dateTimeOrigStr = StringUtils.left(fileName,16);
 		
 		if (!StringUtils.startsWithAny(dateTimeOrigStr,"1","2") || StringUtils.containsNone(dateTimeOrigStr,'-','_'))
 			return null;
@@ -39,11 +39,11 @@ public class FileNameCreationDateProvider implements CreationDateProvider
 		if (StringUtils.countMatches(dateTimeOrigStr,"-") == 2)
 		{
 			if (StringUtils.countMatches(dateTimeOrigStr,"_") == 1)
-				return parseTime(StringUtils.left(fileName,16),merlinNewDtf);
+				return parseTime(dateTimeOrigStr,merlinNewDtf);
 			
 			return parseTime(StringUtils.left(fileName,15),merlinOldDtf);
 		}
 		
-		return dateTimeOrigStr.contains("_") ? parseTime(dateTimeOrigStr,recForgeDtf1) : parseTime(dateTimeOrigStr,recForgeDtf2);
+		return dateTimeOrigStr.contains("_") ? parseTime(StringUtils.left(fileName,13),recForgeDtf1) : parseTime(StringUtils.left(fileName,13),recForgeDtf2);
 	}
 }

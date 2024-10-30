@@ -28,7 +28,7 @@ public class ExifCreationDateProvider implements CreationDateProvider
 	 * Attempts to determine the creation date of a media file (image, audio, or video) by reading its metadata.
 	 * The method supports various file extensions and uses specific logic based on the file type to locate the
 	 * correct metadata indicating the file's creation date. For images, audio, and video files, different metadata
-	 * directories are queried. The method also allows for adjusting the creation date based on a specified hour offset,
+	 * directories are queried. The method also allows for adjusting the returned date based on a specified hour offset,
 	 * which is particularly useful for correcting timezone differences in the timestamps of images.
 	 *
 	 * @param f the {@link Path} to the media file for which the creation date is being sought.
@@ -111,7 +111,7 @@ public class ExifCreationDateProvider implements CreationDateProvider
 			}
 		}
 		
-		if (!isImage || hrsOffset == 0l || MediaSortTask.shouldAdjustExif(Files.readAllBytes(f)) == null)
+		if (hrsOffset == 0l || (isImage && MediaSortTask.shouldAdjustExif(Files.readAllBytes(f)) == null))
 			return parseTime(dateTimeOrigStr,dtf);
 		
 		return parseTime(dateTimeOrigStr,dtf,hrsOffset);
