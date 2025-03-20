@@ -36,7 +36,7 @@ public class TextAreaAppender extends AppenderBase<ILoggingEvent>
      */
     @Override
     protected void append(ILoggingEvent event) {
-        final String message = event.getMessage();
+        final String message = event.getFormattedMessage();
         Platform.runLater(() -> textArea.appendText(message + System.lineSeparator()));
     }
 

@@ -76,7 +76,7 @@ public class MediaSorterApplication extends Application
 	    taskThr.setDaemon(true);
 	    taskThr.start();
 
-	    task.setOnSucceeded(success -> {
+	    task.setOnSucceeded(_ -> {
 	        Path path = task.getValue();
 	        runBut.setDisable(false);
 
@@ -145,7 +145,7 @@ public class MediaSorterApplication extends Application
 		resBtn.setDisable(true);
 		resBtn.setVisible(false);		
 		
-		browseBut.setOnAction(event -> 
+		browseBut.setOnAction(_ -> 
 			{
 				DirectoryChooser dc = new DirectoryChooser();
 				
@@ -162,7 +162,7 @@ public class MediaSorterApplication extends Application
 		   }
 		);
 			
-		offsetSlider.valueProperty().addListener((observable, oldValue, newValue) ->
+		offsetSlider.valueProperty().addListener((_, _, newValue) ->
 		{
 			int offset = newValue.intValue();
 			msc.setHrsOffset(Long.valueOf(offset));
@@ -175,7 +175,7 @@ public class MediaSorterApplication extends Application
 			offsetSlider.setValue(newValue.doubleValue());
 		});	
 		
-		csvBrowse.setOnAction(event ->
+		csvBrowse.setOnAction(_ ->
 		{
 			FileChooser fc = new FileChooser();	
 			fc.getExtensionFilters().add(csvFilter);
@@ -190,13 +190,13 @@ public class MediaSorterApplication extends Application
 			}
 		});
 		
-		sepYearDirCb.setOnAction(event ->
+		sepYearDirCb.setOnAction(_ ->
 			{
 					msc.setSepYear(sepYearDirCb.isSelected());				
 			}
 		);
 		
-		locSortCb.setOnAction(event ->
+		locSortCb.setOnAction(_ ->
 			{
 				if (locSortCb.isSelected())
 					msc.setFolderGroup(FolderGroup.location);
@@ -205,25 +205,25 @@ public class MediaSorterApplication extends Application
 			}
 		);
 		
-		parentDirCb.setOnAction(event ->
+		parentDirCb.setOnAction(_ ->
 			{
 				msc.setCreateParentDir(parentDirCb.isSelected());				
 			}
 		);
 		
-		symbLinkCb.setOnAction(event ->
+		symbLinkCb.setOnAction(_ ->
 		{
 				msc.setUseSymbolicLinks(symbLinkCb.isSelected());				
 		});
 		
-		transcodeVidCb.setOnAction(event ->
+		transcodeVidCb.setOnAction(_ ->
 		{
 				msc.setTranscodeVideos(transcodeVidCb.isSelected());				
 		});		
 		
-		runBut.setOnAction(event -> runMediaSortTask(runBut, resBtn, pb, scroll, msc, msr));
+		runBut.setOnAction(_ -> runMediaSortTask(runBut, resBtn, pb, scroll, msc, msr));
 		
-		resBtn.setOnAction(event ->
+		resBtn.setOnAction(_ ->
 		{
 			Desktop desktop = Desktop.getDesktop();
 			File resFile = new File(msr.getIndexPath().toUri());

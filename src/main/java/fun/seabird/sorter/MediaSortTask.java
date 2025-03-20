@@ -18,7 +18,7 @@ import java.util.List;
 import java.util.SequencedMap;
 import java.util.SequencedSet;
 import java.util.TreeSet;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Gatherers;
 import java.util.stream.Stream;
 
 import javax.annotation.Nullable;
@@ -57,6 +57,7 @@ public class MediaSortTask extends Task<Path> {
 	private static final DateTimeFormatter imageDtf = DateTimeFormatter.ofPattern("yyyy:MM:dd HH:mm:ss");
 	private static final DateTimeFormatter folderDtf = DateTimeFormatter.ofPattern("yyyy-MM-dd");	
 
+	private static final int LOGGING_WINDOW_SIZE = 100;
 	private static final long MAX_ML_UPLOAD_SIZE_VIDEO = 1000l;
 	private static final String TRANSCODED_VIDEO_SUFFIX = "_s";
 
@@ -213,7 +214,7 @@ public class MediaSortTask extends Task<Path> {
 			String outputFileName = fileName.replaceFirst("[.][^.]+$", "") + TRANSCODED_VIDEO_SUFFIX + ".mp4";
 			Path outputFile = file.getParent().resolve(outputFileName);
 			if (Files.notExists(outputFile)) {
-				logger.info(fileName + " too large for ML upload, transcoding with ffmpeg...");
+				logger.info("{} too large for ML upload, transcoding with ffmpeg...",fileName);
 				String convVideoPath = outputFile.toString();
 				String[] command = { "ffmpeg", "-i", file.toString(), "-map_metadata", "0:s:0", "-c:v", "libx264",
 						"-crf", "22", "-preset", "medium", "-c:a", "aac", "-b:a", "128k", "-movflags", "+faststart",
@@ -227,7 +228,7 @@ public class MediaSortTask extends Task<Path> {
 					process = pb.start();
 					int res = process.waitFor();
 					if (res == 0)
-						logger.info("Saved converted video to: " + convVideoPath);
+						logger.info("Saved converted video to {}", convVideoPath);
 				} catch (InterruptedException | IOException e) {
 					logger.error("Cannot transcode video to smaller size", e);
 				} finally {
@@ -334,21 +335,27 @@ public class MediaSortTask extends Task<Path> {
 	 * @throws IOException
 	 */
 	private static void cleanEmptyDirectories(Path dir) throws IOException {
-        if (Files.isDirectory(dir)) {
-            List<Path> subDirectories = Files.list(dir)
-                    .filter(Files::isDirectory).toList();
+	    if (Files.isDirectory(dir)) {
+	        List<Path> subDirectories;
+	        try (Stream<Path> stream = Files.list(dir)) {
+	            subDirectories = stream.filter(Files::isDirectory).toList();
+	        }
 
-            for (Path subDir : subDirectories) {
-                cleanEmptyDirectories(subDir); // Recursively process subdirectories
-            }
+	        for (Path subDir : subDirectories) {
+	            cleanEmptyDirectories(subDir);
+	        }
 
-            List<Path> files = Files.list(dir).toList();
-            if (files.isEmpty()) {
-                Files.deleteIfExists(dir);
-                logger.info(dir.toString());
-            }
-        }
-    }
+	        List<Path> files;
+	        try (Stream<Path> stream = Files.list(dir)) {
+	            files = stream.toList();
+	        }
+
+	        if (files.isEmpty()) {
+	            Files.deleteIfExists(dir);
+	            logger.info("Deleted empty directory {}", dir);
+	        }
+	    }
+	}
 	
 	private void afterMove(Path file,Long hrsOffset) throws IOException
 	{
@@ -364,7 +371,7 @@ public class MediaSortTask extends Task<Path> {
 		if (isImage && hrsOffset != 0l) {
 			String newDateTime = findCreationDt(file,hrsOffset).format(imageDtf);
 			if (changeDateTimeOrig(file, newDateTime)) {
-				logger.debug("Adjusted EXIF date of " + file + " to " + newDateTime);
+				logger.info("Changed EXIF createDt of {} to {}",file,newDateTime);
 			}
 		}		
 	}
@@ -420,18 +427,14 @@ public class MediaSortTask extends Task<Path> {
 		Path outputDir = mediaPath.resolve(outputDirName);
 
 		Long hrsOffset = msc.getHrsOffset();
-
-		AtomicInteger i = new AtomicInteger();
-		List<Path> eligibleFiles = new ArrayList<>();
+		
 		logger.info("Analyzing files...");
-
-		try (Stream<Path> stream = Files.walk(mediaPath)) {
-			stream.filter(MediaSortTask::isEligibleMediaFile).forEach(file -> {
-				eligibleFiles.add(file);
-				i.incrementAndGet();
-				if (i.get() % 100 == 0)
-					logger.info("Added 100 files to processing queue (" + i + " total)...");
-			});
+		List<Path> eligibleFiles = new ArrayList<>();
+		try (Stream<Path> stream = Files.walk(mediaPath)) {		    
+		    stream.filter(MediaSortTask::isEligibleMediaFile)
+		        .gather(Gatherers.windowFixed(LOGGING_WINDOW_SIZE))
+		        .peek(window -> logger.info("Added 100 files to processing queue ({} total)...",(eligibleFiles.size() + window.size())))
+		        .forEach(eligibleFiles::addAll);
 		}
 
 		if (eligibleFiles.isEmpty()) {
@@ -443,7 +446,7 @@ public class MediaSortTask extends Task<Path> {
 		boolean sepYearDir = msc.isSepYear();
 		int numFiles = eligibleFiles.size();
 		int j = 1;
-		logger.info("Processing " + numFiles + " files in " + mediaPath + " and subdirectories...");
+		logger.info("Processing {} files in {} and subdirectories...",numFiles,mediaPath);
 		List<Path> movedFiles = new ArrayList<>(numFiles);
 		for (Path f : eligibleFiles) {
 			
@@ -455,7 +458,11 @@ public class MediaSortTask extends Task<Path> {
 			updateProgress(progPer, 1.0);
 		}
 		
-		logger.info("Finishing up..." + (hrsOffset == 0l ? "" : "(may take a while)"));
+		if (hrsOffset != 0l)
+			logger.info("Adjusting EXIF data (may take a while)...");
+		else		
+			logger.info("Finishing up...");
+		
 		for (Path f : movedFiles)
 			afterMove(f,hrsOffset);
 
@@ -479,7 +486,7 @@ public class MediaSortTask extends Task<Path> {
 		} else {
 			Path finalOutputDir = mediaPath.resolve(MediaSortConstants.OUTPUT_FOLDER_NAME);
 			if (Files.exists(finalOutputDir))
-				logger.error("Directory " + finalOutputDir + " already exists! Check " + outputDir + " for results.");
+				logger.error("Directory {} already exists! Check {} for results.",finalOutputDir,outputDir);
 			else
 				Files.move(outputDir, finalOutputDir, StandardCopyOption.ATOMIC_MOVE);
 		}		
