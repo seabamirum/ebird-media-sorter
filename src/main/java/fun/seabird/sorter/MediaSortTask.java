@@ -9,10 +9,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.SequencedMap;
@@ -189,11 +189,7 @@ public class MediaSortTask extends Task<Path> {
 			return Files.createSymbolicLink(to, from);
 		
 		return Files.move(from, to);
-	}
-
-	private static Path createDirIfNotExists(Path path) throws IOException {
-		return Files.createDirectories(path);
-	}
+	}	
 
 	public static String getFileExtension(String fileName) {
 		int dotIndex = fileName.lastIndexOf('.');
@@ -258,46 +254,33 @@ public class MediaSortTask extends Task<Path> {
 		return mediaTime;
 	}
 	
-	private static Path calcDestDir(Path outputDir,@Nullable String subId,LocalDateTime mediaTime,FolderGroup folderGroup)
-	{
-		String mediaDateStr = mediaTime.format(folderDtf);
-		
-		if (subId == null)
-			return outputDir.resolve(mediaDateStr);
-		
-		Path destDir = outputDir;		
-		SubStats ss = checklistStatsMap.get(subId);
+	private static Path calcDestDir(Path outputDir, @Nullable String subId, LocalDateTime mediaTime, FolderGroup folderGroup) {
+	    String mediaDateStr = mediaTime.format(folderDtf);
+	    
+	    if (subId == null) {
+	        return outputDir.resolve(mediaDateStr);
+	    }
 
-		String locNameAbbrev = StringUtils.abbreviate(ss.getLocName(), StringUtils.EMPTY, 40);
-		locNameAbbrev = StringUtils.replaceEach(locNameAbbrev, invalidChars, validChars);
+	    SubStats ss = checklistStatsMap.get(subId);
+	    String locNameAbbrev = StringUtils.abbreviate(ss.getLocName(), "", 40);
+	    locNameAbbrev = StringUtils.replaceEach(locNameAbbrev, invalidChars, validChars);
 
-		String folderNameInfo = StringUtils.EMPTY;
-		switch (folderGroup) {
-			case location:
-				destDir = destDir.resolve(ss.getSubnational1Code());
-				if (ss.getCounty() != null)
-					destDir = destDir.resolve(ss.getCounty());
-				folderNameInfo = mediaDateStr;
-				
-				destDir = destDir.resolve(locNameAbbrev);
-				break;
-	
-			case date:
-				destDir = destDir.resolve(mediaDateStr);
-				folderNameInfo = ss.getSubnational1Code() + "_" + ss.getCounty() + "_" + locNameAbbrev;
-				break;
-	
-			default:
-				break;
-		}
+	    Path destDir = switch (folderGroup) {
+	        case location -> outputDir
+	                .resolve(ss.getSubnational1Code())
+	                .resolve(ss.getCounty() != null ? ss.getCounty() : "")
+	                .resolve(locNameAbbrev)
+	                .resolve(mediaDateStr + "_" + subId);
+	        case date -> outputDir
+	                .resolve(mediaDateStr)
+	                .resolve(ss.getSubnational1Code() + "_" + ss.getCounty() + "_" + locNameAbbrev + "_" + subId);
+	        default -> outputDir.resolve(mediaDateStr + "_" + subId);
+	    };
 
-		String folderName = folderNameInfo + "_" + subId;
-		destDir = destDir.resolve(folderName);
+	    subIds.add(subId);
+	    ss.incNumAssetsLocal();
 
-		subIds.add(subId);
-		ss.incNumAssetsLocal();
-		
-		return destDir;
+	    return destDir;
 	}
 
 	/**
@@ -322,7 +305,7 @@ public class MediaSortTask extends Task<Path> {
 		
 		Path destDir = calcDestDir(grandParentDir, subId, mediaTime, folderGroup);
 
-		createDirIfNotExists(destDir);
+		Files.createDirectories(destDir);
 
 		String fileName = file.getFileName().toString();
 		Path destFile = destDir.resolve(fileName);
@@ -382,7 +365,7 @@ public class MediaSortTask extends Task<Path> {
 		if (subIds.isEmpty())
 			return null;
 		
-		Path resultsFile = mediaPath.resolve("checklistIndex_" + new Date().getTime() + ".csv");
+		Path resultsFile = mediaPath.resolve("checklistIndex_" + Instant.now().toEpochMilli() + ".csv");
 		
         try (CsvWriter csvWriter = CsvWriter.builder().build(resultsFile,StandardCharsets.UTF_8,StandardOpenOption.CREATE))
         {
@@ -423,7 +406,7 @@ public class MediaSortTask extends Task<Path> {
 		Path mediaPath = msc.getMediaPath();
 
 		// make output directory inside the provided media folder
-		String outputDirName = MediaSortConstants.OUTPUT_FOLDER_NAME + "_" + new Date().getTime();
+		String outputDirName = MediaSortConstants.OUTPUT_FOLDER_NAME + "_" + Instant.now().toEpochMilli();
 		Path outputDir = mediaPath.resolve(outputDirName);
 
 		Long hrsOffset = msc.getHrsOffset();
