@@ -10,7 +10,7 @@ import fun.seabird.sorter.FolderGroup;
 import fun.seabird.sorter.MediaSortCmd;
 import fun.seabird.sorter.MediaSortResult;
 import fun.seabird.sorter.MediaSortTask;
-import fun.seabird.util.MediaSortConstants;
+import fun.seabird.util.MediaSortUtils;
 import javafx.application.Application;
 import javafx.geometry.Insets;
 import javafx.scene.Scene;
@@ -157,7 +157,7 @@ public class MediaSorterApplication extends Application
 		        	msc.setMediaPath(selectedFile.toPath());
 		        	browseButLbl.setText(path);
 		        	runBut.setDisable(false);			        	
-		        	parentDirCb.setText(msgs.getString("subDirText") + " " + msc.getMediaPath().resolve(MediaSortConstants.OUTPUT_FOLDER_NAME));
+		        	parentDirCb.setText(msgs.getString("subDirText") + " " + msc.getMediaPath().resolve(MediaSortUtils.OUTPUT_FOLDER_NAME));
 				}
 		   }
 		);

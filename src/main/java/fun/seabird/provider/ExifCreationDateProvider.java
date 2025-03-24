@@ -17,8 +17,7 @@ import com.drew.metadata.mov.media.QuickTimeMediaDirectory;
 import com.drew.metadata.mp4.Mp4Directory;
 import com.drew.metadata.wav.WavDirectory;
 
-import fun.seabird.sorter.MediaSortTask;
-import fun.seabird.util.MediaSortConstants;
+import fun.seabird.util.MediaSortUtils;
 
 public class ExifCreationDateProvider implements CreationDateProvider
 {
@@ -57,11 +56,11 @@ public class ExifCreationDateProvider implements CreationDateProvider
 	public LocalDateTime findCreationDate(Path f,Long hrsOffset) throws IOException
 	{
 		String fileName = f.getFileName().toString();
-		String fileExt = MediaSortTask.getFileExtension(fileName).toLowerCase();		
+		String fileExt = MediaSortUtils.getFileExtension(fileName).toLowerCase();		
 		
-		boolean isImage = MediaSortConstants.imageExtensions.contains(fileExt);
-		boolean isAudio= MediaSortConstants.audioExtensions.contains(fileExt);
-		boolean isVideo = MediaSortConstants.videoExtensions.contains(fileExt);
+		boolean isImage = MediaSortUtils.imageExtensions.contains(fileExt);
+		boolean isAudio= MediaSortUtils.audioExtensions.contains(fileExt);
+		boolean isVideo = MediaSortUtils.videoExtensions.contains(fileExt);
 		
 		Metadata metadata = null;		
 		try(InputStream mediaStream = Files.newInputStream(f))
@@ -111,7 +110,7 @@ public class ExifCreationDateProvider implements CreationDateProvider
 			}
 		}
 		
-		if (hrsOffset == 0l || (isImage && MediaSortTask.shouldAdjustExif(Files.readAllBytes(f)) == null))
+		if (hrsOffset == 0l || (isImage && MediaSortUtils.shouldAdjustExif(Files.readAllBytes(f)) == null))
 			return parseTime(dateTimeOrigStr,dtf);
 		
 		return parseTime(dateTimeOrigStr,dtf,hrsOffset);

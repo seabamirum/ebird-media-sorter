@@ -21,11 +21,6 @@ import java.util.TreeSet;
 import java.util.stream.Gatherers;
 import java.util.stream.Stream;
 
-import javax.annotation.Nullable;
-
-import org.apache.commons.imaging.Imaging;
-import org.apache.commons.imaging.common.ImageMetadata;
-import org.apache.commons.imaging.common.ImageMetadata.ImageMetadataItem;
 import org.apache.commons.imaging.formats.jpeg.JpegImageMetadata;
 import org.apache.commons.imaging.formats.jpeg.exif.ExifRewriter;
 import org.apache.commons.imaging.formats.tiff.TiffImageMetadata;
@@ -48,7 +43,7 @@ import fun.seabird.provider.CreationDateProvider;
 import fun.seabird.provider.ExifCreationDateProvider;
 import fun.seabird.provider.FileModifiedCreationDateProvider;
 import fun.seabird.provider.FileNameCreationDateProvider;
-import fun.seabird.util.MediaSortConstants;
+import fun.seabird.util.MediaSortUtils;
 import javafx.concurrent.Task;
 
 public class MediaSortTask extends Task<Path> {
@@ -89,62 +84,30 @@ public class MediaSortTask extends Task<Path> {
 	private void parseCsvLine(EbirdCsvRow row) 
 	{
 		int duration = row.getDuration();
-		if (duration <= 0)
-			return;
-		
-		if (row.getTime() == null)
+		if (duration <= 0 || row.getTime() == null)
 			return;
 
 		String subId = row.getSubId();
-		if (!checklistStatsMap.containsKey(subId)) {			
+		checklistStatsMap.computeIfAbsent(subId, _ ->
+		{
+			var subBeginTime = row.dateTime();
+			var subEndTime = subBeginTime.plusMinutes(duration);
 
-			LocalDateTime subBeginTime = row.dateTime();
-			LocalDateTime subEndTime = subBeginTime.plusMinutes(duration);
-
-			checklistStatsMap.putIfAbsent(subId, new SubStats(subBeginTime,row.getSubnat1Code(),row.getSubnat2Name(),row.getLocName()));
 			rangeMap.put(Range.closed(subBeginTime, subEndTime), subId);
-		}
+			return new SubStats(subBeginTime,row.getSubnat1Code(),row.getSubnat2Name(),row.getLocName());
+		});
 
 		var assetIds = row.getAssetIds();
 		if (!assetIds.isEmpty())
 			checklistStatsMap.get(subId).incNumAssetsUploaded(assetIds.size());			
 	}
 
-
-	/**
-	 * @param jpegImageFile
-	 * @return NULL if not an image or image is from an Apple or Google device--the
-	 *         metadata otherwise
-	 */
-	public static JpegImageMetadata shouldAdjustExif(byte[] jpegImageFile) {
-		ImageMetadata metadata;
-		try {
-			metadata = Imaging.getMetadata(jpegImageFile);
-		} catch (IOException e) {
-			e.printStackTrace();
-			return null;
-		}
-
-		if (!(metadata instanceof JpegImageMetadata))
-			return null;
-
-		JpegImageMetadata jpegMetadata = (JpegImageMetadata) metadata;
-
-		// Don't adjust EXIF offset for mobile phones
-		List<ImageMetadataItem> items = jpegMetadata.getItems();
-		for (ImageMetadataItem item : items) {
-			String itemStr = item.toString();
-			if (StringUtils.contains(itemStr, "Make") && StringUtils.containsAny(itemStr, "Apple", "Google"))
-				return null;
-		}
-
-		return jpegMetadata;
-	}	
+	
 	
 	private static boolean changeDateTimeOrig(Path imageFile, String newDateTime) throws IOException {
 		byte[] originalImageBytes = Files.readAllBytes(imageFile);
 
-		JpegImageMetadata jpegMetadata = shouldAdjustExif(originalImageBytes);
+		JpegImageMetadata jpegMetadata = MediaSortUtils.shouldAdjustExif(originalImageBytes);
 		if (jpegMetadata == null)
 			return false;
 
@@ -169,15 +132,30 @@ public class MediaSortTask extends Task<Path> {
 		if (Files.isDirectory(file) || Files.isSymbolicLink(file))
 			return false;
 
-		String fileExt = getFileExtension(file.getFileName().toString()).toLowerCase();
+		String fileExt = MediaSortUtils.getFileExtension(file.getFileName().toString()).toLowerCase();
 
-		boolean isImage = MediaSortConstants.imageExtensions.contains(fileExt);
-		boolean isAudio = MediaSortConstants.audioExtensions.contains(fileExt);
-		boolean isVideo = MediaSortConstants.videoExtensions.contains(fileExt);
+		boolean isImage = MediaSortUtils.imageExtensions.contains(fileExt);
+		boolean isAudio = MediaSortUtils.audioExtensions.contains(fileExt);
+		boolean isVideo = MediaSortUtils.videoExtensions.contains(fileExt);
 
 		return isImage || isAudio || isVideo;
 	}
 
+	/**
+	 * Moves a file from the source path to the destination path, optionally using a symbolic link.
+	 * <p>
+	 * If the destination file already exists, the operation is aborted, an error is logged, and the
+	 * source path is returned unchanged. Depending on the configuration in {@code msc}, this method
+	 * either creates a symbolic link at the destination pointing to the source, or physically moves
+	 * the file from the source to the destination.
+	 * </p>
+	 *
+	 * @param from the source path of the file to move
+	 * @param to the destination path where the file should be moved or linked
+	 * @return the path of the file after the operation: {@code from} if the move fails due to an
+	 *         existing destination, or {@code to} if the move or link creation succeeds
+	 * @throws IOException if an I/O error occurs during the move or symbolic link creation
+	 */
 	private Path moveFile(Path from, Path to) throws IOException 
 	{
 		if (Files.exists(to)) {
@@ -190,11 +168,7 @@ public class MediaSortTask extends Task<Path> {
 		
 		return Files.move(from, to);
 	}	
-
-	public static String getFileExtension(String fileName) {
-		int dotIndex = fileName.lastIndexOf('.');
-		return (dotIndex == -1) ? "" : fileName.substring(dotIndex + 1);
-	}
+	
 
 	/**
 
@@ -254,12 +228,21 @@ public class MediaSortTask extends Task<Path> {
 		return mediaTime;
 	}
 	
-	private static Path calcDestDir(Path outputDir, @Nullable String subId, LocalDateTime mediaTime, FolderGroup folderGroup) {
-	    String mediaDateStr = mediaTime.format(folderDtf);
+	/**
+	 * Calculates the destination directory path based on output directory, submission ID, media timestamp, and folder grouping strategy.
+	 * 
+	 * @param outputDir   the base output directory where the calculated path will be resolved, must not be {@code null}
+	 * @param subId       the submission ID, may be {@code null}; if {@code null}, the path excludes submission-specific details
+	 * @param mediaTime   the timestamp of the media, used to generate a date string, must not be {@code null}
+	 * @param folderGroup the grouping strategy for organizing folders (e.g., by location or date), must not be {@code null}
+	 * @return the resolved {@link Path} representing the destination directory
+	 */
+	private static Path calcDestDir(Path outputDir, String subId, LocalDateTime mediaTime, FolderGroup folderGroup) {
 	    
-	    if (subId == null) {
+		String mediaDateStr = mediaTime.format(folderDtf);
+	    
+	    if (subId == null)
 	        return outputDir.resolve(mediaDateStr);
-	    }
 
 	    SubStats ss = checklistStatsMap.get(subId);
 	    String locNameAbbrev = StringUtils.abbreviate(ss.getLocName(), "", 40);
@@ -343,18 +326,18 @@ public class MediaSortTask extends Task<Path> {
 	private void afterMove(Path file,Long hrsOffset) throws IOException
 	{
 		String fileName = file.getFileName().toString();
-		String fileExt = getFileExtension(fileName).toLowerCase();
+		String fileExt = MediaSortUtils.getFileExtension(fileName).toLowerCase();
 		if (msc.isTranscodeVideos() && fileExt.equals("mp4") && !fileName.contains(TRANSCODED_VIDEO_SUFFIX))
 		{
 			transcodeVideo(file);
 			return;
 		}
 		
-		boolean isImage = MediaSortConstants.imageExtensions.contains(fileExt);		
+		boolean isImage = MediaSortUtils.imageExtensions.contains(fileExt);		
 		if (isImage && hrsOffset != 0l) {
 			String newDateTime = findCreationDt(file,hrsOffset).format(imageDtf);
 			if (changeDateTimeOrig(file, newDateTime)) {
-				logger.info("Changed EXIF createDt of {} to {}",file,newDateTime);
+				logger.info("Changed EXIF date of {} to {}",file.getFileName(),newDateTime);
 			}
 		}		
 	}
@@ -406,7 +389,7 @@ public class MediaSortTask extends Task<Path> {
 		Path mediaPath = msc.getMediaPath();
 
 		// make output directory inside the provided media folder
-		String outputDirName = MediaSortConstants.OUTPUT_FOLDER_NAME + "_" + Instant.now().toEpochMilli();
+		String outputDirName = MediaSortUtils.OUTPUT_FOLDER_NAME + "_" + Instant.now().toEpochMilli();
 		Path outputDir = mediaPath.resolve(outputDirName);
 
 		Long hrsOffset = msc.getHrsOffset();
@@ -467,7 +450,7 @@ public class MediaSortTask extends Task<Path> {
 
 			Files.delete(outputDir);
 		} else {
-			Path finalOutputDir = mediaPath.resolve(MediaSortConstants.OUTPUT_FOLDER_NAME);
+			Path finalOutputDir = mediaPath.resolve(MediaSortUtils.OUTPUT_FOLDER_NAME);
 			if (Files.exists(finalOutputDir))
 				logger.error("Directory {} already exists! Check {} for results.",finalOutputDir,outputDir);
 			else
