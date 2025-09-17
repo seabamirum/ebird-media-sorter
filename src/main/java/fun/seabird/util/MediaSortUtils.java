@@ -8,7 +8,7 @@ import org.apache.commons.imaging.Imaging;
 import org.apache.commons.imaging.common.ImageMetadata;
 import org.apache.commons.imaging.common.ImageMetadata.ImageMetadataItem;
 import org.apache.commons.imaging.formats.jpeg.JpegImageMetadata;
-import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.Strings;
 
 public final class MediaSortUtils 
 {
@@ -48,7 +48,7 @@ public final class MediaSortUtils
 		List<ImageMetadataItem> items = jpegMetadata.getItems();
 		for (ImageMetadataItem item : items) {
 			String itemStr = item.toString();
-			if (StringUtils.contains(itemStr, "Make") && StringUtils.containsAny(itemStr, "Apple", "Google"))
+			if (Strings.CI.contains(itemStr, "Make") && Strings.CI.containsAny(itemStr, "Apple", "Google"))
 				return null;
 		}
 

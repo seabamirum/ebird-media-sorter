@@ -124,8 +124,8 @@ public class MediaSorterApplication extends Application
 		
 		CheckBox locSortCb = new CheckBox(msgs.getString("locSortText"));
 		CheckBox sepYearDirCb = new CheckBox(msgs.getString("sepYearText"));
-		CheckBox parentDirCb = new CheckBox(msgs.getString("subDirText"));
-		parentDirCb.setSelected(true);
+		CheckBox subDirCb = new CheckBox(msgs.getString("subDirText"));
+		subDirCb.setSelected(true);
 		CheckBox symbLinkCb = new CheckBox(msgs.getString("symbLinkText"));		
 		CheckBox transcodeVidCb = new CheckBox(msgs.getString("transcodeVidText"));
 		
@@ -157,7 +157,7 @@ public class MediaSorterApplication extends Application
 		        	msc.setMediaPath(selectedFile.toPath());
 		        	browseButLbl.setText(path);
 		        	runBut.setDisable(false);			        	
-		        	parentDirCb.setText(msgs.getString("subDirText") + " " + msc.getMediaPath().resolve(MediaSortUtils.OUTPUT_FOLDER_NAME));
+		        	subDirCb.setText(msgs.getString("subDirText") + " " + msc.getMediaPath().resolve(MediaSortUtils.OUTPUT_FOLDER_NAME));
 				}
 		   }
 		);
@@ -205,9 +205,9 @@ public class MediaSorterApplication extends Application
 			}
 		);
 		
-		parentDirCb.setOnAction(_ ->
+		subDirCb.setOnAction(_ ->
 			{
-				msc.setCreateParentDir(parentDirCb.isSelected());				
+				msc.setCreateSubDir(subDirCb.isSelected());				
 			}
 		);
 		
@@ -247,7 +247,7 @@ public class MediaSorterApplication extends Application
 		
 		gp.add(new HBox(10,csvBrowse,csvBrowseLbl),0,2,3,1);
 		
-		gp.add(parentDirCb,0,3,3,1);
+		gp.add(subDirCb,0,3,3,1);
 		gp.add(sepYearDirCb,0,4,3,1);
 		gp.add(locSortCb,0,5,3,1);
 		gp.add(symbLinkCb,0,6,3,1);

@@ -13,6 +13,7 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.SequencedMap;
@@ -398,6 +399,7 @@ public class MediaSortTask extends Task<Path> {
 		List<Path> eligibleFiles = new ArrayList<>();
 		try (Stream<Path> stream = Files.walk(mediaPath)) {		    
 		    stream.filter(MediaSortTask::isEligibleMediaFile)
+		    	.sorted(Comparator.comparing(Path::getFileName))
 		        .gather(Gatherers.windowFixed(LOGGING_WINDOW_SIZE))
 		        .peek(window -> logger.info("Added 100 files to processing queue ({} total)...",(eligibleFiles.size() + window.size())))
 		        .forEach(eligibleFiles::addAll);
@@ -432,8 +434,13 @@ public class MediaSortTask extends Task<Path> {
 		for (Path f : movedFiles)
 			afterMove(f,hrsOffset);
 
-		// Move all files out of temp parent directory we created
-		if (!msc.isCreateParentDir()) {
+		if (msc.isCreateSubDir()) {
+			Path finalOutputDir = mediaPath.resolve(MediaSortUtils.OUTPUT_FOLDER_NAME);
+			if (Files.exists(finalOutputDir))
+				logger.error("Directory {} already exists! Check {} for results.",finalOutputDir,outputDir);
+			else
+				Files.move(outputDir, finalOutputDir, StandardCopyOption.ATOMIC_MOVE);
+		} else {
 			List<Path> dirToMove = new ArrayList<>();
 			   try (Stream<Path> stream = Files.walk(outputDir, 1)) {
 			        stream.filter(path -> !path.equals(outputDir))
@@ -449,12 +456,6 @@ public class MediaSortTask extends Task<Path> {
 			}
 
 			Files.delete(outputDir);
-		} else {
-			Path finalOutputDir = mediaPath.resolve(MediaSortUtils.OUTPUT_FOLDER_NAME);
-			if (Files.exists(finalOutputDir))
-				logger.error("Directory {} already exists! Check {} for results.",finalOutputDir,outputDir);
-			else
-				Files.move(outputDir, finalOutputDir, StandardCopyOption.ATOMIC_MOVE);
 		}		
 		
 		Path resultsFile = writeResults(mediaPath);

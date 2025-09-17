@@ -5,6 +5,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.Strings;
 
 public class FileNameCreationDateProvider implements CreationDateProvider 
 {
@@ -33,7 +34,7 @@ public class FileNameCreationDateProvider implements CreationDateProvider
 		String fileName = f.getFileName().toString();
 		String dateTimeOrigStr = StringUtils.left(fileName,16);
 		
-		if (!StringUtils.startsWithAny(dateTimeOrigStr,"1","2") || StringUtils.containsNone(dateTimeOrigStr,'-','_'))
+		if (!Strings.CS.startsWithAny(dateTimeOrigStr,"1","2") || StringUtils.containsNone(dateTimeOrigStr,'-','_'))
 			return null;
 		
 		if (StringUtils.countMatches(dateTimeOrigStr,"-") == 2)

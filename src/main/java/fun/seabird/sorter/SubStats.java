@@ -17,7 +17,6 @@ class SubStats
 	private AtomicInteger numAssetsLocal = new AtomicInteger(0);
 
 	public SubStats(LocalDateTime date, String subnational1Code, String county,String locName) {
-		super();
 		this.date = date;
 		this.subnational1Code = subnational1Code;
 		this.county = county;

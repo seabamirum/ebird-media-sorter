@@ -12,7 +12,7 @@ public class MediaSortCmd
 	
 	private boolean sepYear = false;	
 	private boolean transcodeVideos = false;
-	private boolean createParentDir = true;
+	private boolean createSubDir = true;
 	private boolean useSymbolicLinks = false;
 	private FolderGroup folderGroup = FolderGroup.date;	
 
@@ -34,11 +34,11 @@ public class MediaSortCmd
 	public void setCsvFile(Path csvFile) {
 		this.csvFile = csvFile;
 	}	
-	public boolean isCreateParentDir() {
-		return createParentDir;
+	public boolean isCreateSubDir() {
+		return createSubDir;
 	}
-	public void setCreateParentDir(boolean createParentDir) {
-		this.createParentDir = createParentDir;
+	public void setCreateSubDir(boolean createSubDir) {
+		this.createSubDir = createSubDir;
 	}
 	public boolean isUseSymbolicLinks() {
 		return useSymbolicLinks;
