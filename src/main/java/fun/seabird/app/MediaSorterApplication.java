@@ -128,6 +128,7 @@ public class MediaSorterApplication extends Application
 		subDirCb.setSelected(true);
 		CheckBox symbLinkCb = new CheckBox(msgs.getString("symbLinkText"));		
 		CheckBox transcodeVidCb = new CheckBox(msgs.getString("transcodeVidText"));
+		CheckBox extractAudioCb = new CheckBox(msgs.getString("extractAudioText"));
 		
 		Button runBut = new Button(msgs.getString("runBtnText"));
 		runBut.setDisable(true);
@@ -221,6 +222,11 @@ public class MediaSorterApplication extends Application
 				msc.setTranscodeVideos(transcodeVidCb.isSelected());				
 		});		
 		
+		extractAudioCb.setOnAction(_ ->
+		{
+				msc.setExtractAudio(extractAudioCb.isSelected());				
+		});		
+		
 		runBut.setOnAction(_ -> runMediaSortTask(runBut, resBtn, pb, scroll, msc, msr));
 		
 		resBtn.setOnAction(_ ->
@@ -252,17 +258,18 @@ public class MediaSorterApplication extends Application
 		gp.add(locSortCb,0,5,3,1);
 		gp.add(symbLinkCb,0,6,3,1);
 		gp.add(transcodeVidCb,0,7,3,1);
+		gp.add(extractAudioCb,0,8,3,1);
 		
-		gp.add(new HBox(10,offsetSlider,offsetLbl),0,8,3,1);
+		gp.add(new HBox(10,offsetSlider,offsetLbl),0,9,3,1);
 		
-		gp.add(new Separator(),0,9,3,1);
+		gp.add(new Separator(),0,10,3,1);
 		
-		gp.add(runBut,0,10,3,1);
+		gp.add(runBut,0,11,3,1);
 		
-		gp.add(pb,0,11,3,2);
+		gp.add(pb,0,12,3,2);
 		
-		gp.add(scroll,0,13,3,1);
-		gp.add(resBtn,0,17,3,1);	
+		gp.add(scroll,0,14,3,1);
+		gp.add(resBtn,0,18,3,1);	
 					
 		Scene scene = new Scene(gp,FRAME_WIDTH,FRAME_HEIGHT);
 		Insets padding = new Insets(10,0,10,30); //padding on the left side

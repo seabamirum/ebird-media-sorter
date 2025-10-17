@@ -11,6 +11,7 @@ import com.drew.imaging.ImageMetadataReader;
 import com.drew.imaging.ImageProcessingException;
 import com.drew.metadata.Directory;
 import com.drew.metadata.Metadata;
+import com.drew.metadata.avi.AviDirectory;
 import com.drew.metadata.exif.ExifDirectoryBase;
 import com.drew.metadata.exif.ExifSubIFDDirectory;
 import com.drew.metadata.mov.media.QuickTimeMediaDirectory;
@@ -21,7 +22,7 @@ import fun.seabird.util.MediaSortUtils;
 
 public class ExifCreationDateProvider implements CreationDateProvider
 {
-	private static final DateTimeFormatter imageDtf = DateTimeFormatter.ofPattern("yyyy:MM:dd HH:mm:ss");
+	private static final DateTimeFormatter imageDtf = DateTimeFormatter.ofPattern("yyyy:MM:dd HH:mm:ss");	
 
 	/**
 	 * Attempts to determine the creation date of a media file (image, audio, or video) by reading its metadata.
@@ -53,66 +54,65 @@ public class ExifCreationDateProvider implements CreationDateProvider
 	 * </ul>
 	 */
 	@Override
-	public LocalDateTime findCreationDate(Path f,Long hrsOffset) throws IOException
-	{
-		String fileName = f.getFileName().toString();
-		String fileExt = MediaSortUtils.getFileExtension(fileName).toLowerCase();		
-		
-		boolean isImage = MediaSortUtils.imageExtensions.contains(fileExt);
-		boolean isAudio= MediaSortUtils.audioExtensions.contains(fileExt);
-		boolean isVideo = MediaSortUtils.videoExtensions.contains(fileExt);
-		
-		Metadata metadata = null;		
-		try(InputStream mediaStream = Files.newInputStream(f))
-		{
-			try {
-				metadata = ImageMetadataReader.readMetadata(mediaStream);		
-			}
-			catch(ImageProcessingException ipe)
-			{
-				System.err.println("Error reading " + fileName + ": " + ipe);
-			}
-			catch(StringIndexOutOfBoundsException sobe)
-			{
-				System.err.println("Error reading " + fileName + ": " + sobe);
-			}
-		}
-		
-		Directory directory = null; 
-		String dateTimeOrigStr = null;
-		DateTimeFormatter dtf = isImage ? imageDtf : timezoneDtf;
-		int creationTimeTag = ExifDirectoryBase.TAG_DATETIME_ORIGINAL;
-		if (metadata != null)
-		{
-			if (isImage)
-				directory = metadata.getFirstDirectoryOfType(ExifSubIFDDirectory.class);
-			else if (isVideo)
-			{
-				if (fileExt.equals("mp4"))
-					directory = metadata.getFirstDirectoryOfType(Mp4Directory.class);
-				else if (fileExt.equals("mov"))
-					directory = metadata.getFirstDirectoryOfType(QuickTimeMediaDirectory.class);				
-			}
-			else if (isAudio && fileExt.equals("wav"))
-				directory = metadata.getFirstDirectoryOfType(WavDirectory.class);
-			
-			if (directory != null)
-			{
-		        if (isVideo)
-		        	if (fileExt.equals("mp4"))
-			        	creationTimeTag = Mp4Directory.TAG_CREATION_TIME;
-					else if (fileExt.equals("mov"))
-						creationTimeTag = QuickTimeMediaDirectory.TAG_CREATION_TIME;
-		        else if (isAudio)
-		        	creationTimeTag = WavDirectory.TAG_DATE_CREATED;	
-		        
-	        	dateTimeOrigStr = directory.getString(creationTimeTag);
-			}
-		}
-		
-		if (hrsOffset == 0l || (isImage && MediaSortUtils.shouldAdjustExif(Files.readAllBytes(f)) == null))
-			return parseTime(dateTimeOrigStr,dtf);
-		
-		return parseTime(dateTimeOrigStr,dtf,hrsOffset);
+	public LocalDateTime findCreationDate(Path f, Long hrsOffset) throws IOException {
+	    String fileName = f.getFileName().toString();
+	    String fileExt = MediaSortUtils.getFileExtension(fileName).toLowerCase();        
+
+	    boolean isImage = MediaSortUtils.imageExtensions.contains(fileExt);
+	    boolean isAudio = MediaSortUtils.audioExtensions.contains(fileExt);
+	    boolean isVideo = MediaSortUtils.videoExtensions.contains(fileExt);
+	    
+	    Metadata metadata = null;        
+	    try (InputStream mediaStream = Files.newInputStream(f)) {
+	        try {
+	            metadata = ImageMetadataReader.readMetadata(mediaStream);        
+	        } catch (ImageProcessingException ipe) {
+	            System.err.println("Error reading " + fileName + ": " + ipe);
+	        } catch (StringIndexOutOfBoundsException sobe) {
+	            System.err.println("Error reading " + fileName + ": " + sobe);
+	        }
+	    }
+	    
+	    Directory directory = null; 
+	    String dateTimeOrigStr = null;
+	    DateTimeFormatter dtf = isImage ? imageDtf : timezoneDtf;
+	    int creationTimeTag = ExifDirectoryBase.TAG_DATETIME_ORIGINAL;
+	    if (metadata != null) {
+	        if (isImage) {
+	            directory = metadata.getFirstDirectoryOfType(ExifSubIFDDirectory.class);
+	        } else if (isVideo) {
+	            if (fileExt.equals("mp4")) {
+	                directory = metadata.getFirstDirectoryOfType(Mp4Directory.class);
+	            } else if (fileExt.equals("mov")) {
+	                directory = metadata.getFirstDirectoryOfType(QuickTimeMediaDirectory.class);                
+	            } else if (fileExt.equals("avi")) {
+	                directory = metadata.getFirstDirectoryOfType(AviDirectory.class);
+	            }
+	        } else if (isAudio && fileExt.equals("wav")) {
+	            directory = metadata.getFirstDirectoryOfType(WavDirectory.class);
+	        }
+	        
+	        if (directory != null) {
+	            if (isVideo) {
+	                if (fileExt.equals("mp4")) {
+	                    creationTimeTag = Mp4Directory.TAG_CREATION_TIME;
+	                } else if (fileExt.equals("mov")) {
+	                    creationTimeTag = QuickTimeMediaDirectory.TAG_CREATION_TIME;
+	                } else if (fileExt.equals("avi")) {
+	                    creationTimeTag = AviDirectory.TAG_DATETIME_ORIGINAL;
+	                }
+	            } else if (isAudio) {
+	                creationTimeTag = WavDirectory.TAG_DATE_CREATED;    
+	            }
+	            
+	            dateTimeOrigStr = directory.getString(creationTimeTag);
+	        }
+	    }
+	    
+	    if (hrsOffset == 0L || (isImage && MediaSortUtils.shouldAdjustExif(Files.readAllBytes(f)) == null)) {
+	        return parseTime(dateTimeOrigStr, dtf);
+	    }
+	    
+	    return parseTime(dateTimeOrigStr, dtf, hrsOffset);
 	}
 }

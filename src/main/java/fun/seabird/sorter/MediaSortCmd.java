@@ -11,6 +11,7 @@ public class MediaSortCmd
 	private boolean reParseCsv=true;
 	
 	private boolean sepYear = false;	
+	private boolean extractAudio = false;
 	private boolean transcodeVideos = false;
 	private boolean createSubDir = true;
 	private boolean useSymbolicLinks = false;
@@ -69,6 +70,12 @@ public class MediaSortCmd
 	}
 	public void setReParseCsv(boolean reParseCsv) {
 		this.reParseCsv = reParseCsv;
+	}
+	public boolean isExtractAudio() {
+		return extractAudio;
+	}
+	public void setExtractAudio(boolean extractAudio) {
+		this.extractAudio = extractAudio;
 	}
 	
 }

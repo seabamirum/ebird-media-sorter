@@ -68,6 +68,14 @@ public class MediaSortTask extends Task<Path> {
 	private static final SequencedMap<String, SubStats> checklistStatsMap = new LinkedHashMap<>();
 	private static final SequencedSet<String> subIds = new TreeSet<>();
 	
+	private record FileInfo(String name, String base, String ext) {
+	    FileInfo(Path file) {
+	        this(file.getFileName().toString(),
+	             MediaSortUtils.getBaseName(file.getFileName().toString()),
+	             MediaSortUtils.getFileExtension(file.getFileName().toString()).toLowerCase());
+	    }
+	}
+	
 	private final MediaSortCmd msc;
 	
 	private transient Process process;	
@@ -102,8 +110,6 @@ public class MediaSortTask extends Task<Path> {
 		if (!assetIds.isEmpty())
 			checklistStatsMap.get(subId).incNumAssetsUploaded(assetIds.size());			
 	}
-
-	
 	
 	private static boolean changeDateTimeOrig(Path imageFile, String newDateTime) throws IOException {
 		byte[] originalImageBytes = Files.readAllBytes(imageFile);
@@ -133,13 +139,7 @@ public class MediaSortTask extends Task<Path> {
 		if (Files.isDirectory(file) || Files.isSymbolicLink(file))
 			return false;
 
-		String fileExt = MediaSortUtils.getFileExtension(file.getFileName().toString()).toLowerCase();
-
-		boolean isImage = MediaSortUtils.imageExtensions.contains(fileExt);
-		boolean isAudio = MediaSortUtils.audioExtensions.contains(fileExt);
-		boolean isVideo = MediaSortUtils.videoExtensions.contains(fileExt);
-
-		return isImage || isAudio || isVideo;
+		return MediaSortUtils.mediaExtensions.contains(MediaSortUtils.getFileExtension(file).toLowerCase());
 	}
 
 	/**
@@ -168,47 +168,27 @@ public class MediaSortTask extends Task<Path> {
 			return Files.createSymbolicLink(to, from);
 		
 		return Files.move(from, to);
-	}	
-	
+	}		
 
-	/**
-
-	Transcodes the video file to a smaller size if it exceeds the maximum ML upload size.
-	@param file The path to the video file to transcode.
-	@throws IOException If an I/O error occurs during the transcoding process.
-	*/
-	private void transcodeVideo(Path file) throws IOException {
-		long fileSizeInBytes = Files.size(file);
-		long fileSizeInMB = fileSizeInBytes / (1024 * 1024);
-		String fileName = file.getFileName().toString();
-		if (fileSizeInMB > MAX_ML_UPLOAD_SIZE_VIDEO) {
-			String outputFileName = fileName.replaceFirst("[.][^.]+$", "") + TRANSCODED_VIDEO_SUFFIX + ".mp4";
-			Path outputFile = file.getParent().resolve(outputFileName);
-			if (Files.notExists(outputFile)) {
-				logger.info("{} too large for ML upload, transcoding with ffmpeg...",fileName);
-				String convVideoPath = outputFile.toString();
-				String[] command = { "ffmpeg", "-i", file.toString(), "-map_metadata", "0:s:0", "-c:v", "libx264",
-						"-crf", "22", "-preset", "medium", "-c:a", "aac", "-b:a", "128k", "-movflags", "+faststart",
-						"-max_muxing_queue_size", "1024", convVideoPath };
-
-				ProcessBuilder pb = new ProcessBuilder(command);
-				pb.redirectError(ProcessBuilder.Redirect.DISCARD);
-				pb.redirectOutput(ProcessBuilder.Redirect.DISCARD);
-
-				try {
-					process = pb.start();
-					int res = process.waitFor();
-					if (res == 0)
-						logger.info("Saved converted video to {}", convVideoPath);
-				} catch (InterruptedException | IOException e) {
-					logger.error("Cannot transcode video to smaller size", e);
-				} finally {
-					if (process != null) {
-						process.destroy();
-					}
-				}
-			}
-		}
+	private static boolean runFfmpeg(String[] command, String operation) {
+	    ProcessBuilder pb = new ProcessBuilder(command);
+	    pb.redirectError(ProcessBuilder.Redirect.DISCARD);
+	    pb.redirectOutput(ProcessBuilder.Redirect.DISCARD);
+	    Process process = null;
+	    try {
+	        process = pb.start();
+	        int res = process.waitFor();
+	        if (res != 0) {
+	            logger.warn("FFmpeg {} failed with exit code {}", operation, res);
+	            return false;
+	        }
+	        return true;
+	    } catch (InterruptedException | IOException e) {
+	        logger.error("Cannot perform FFmpeg {}", operation, e);
+	        return false;
+	    } finally {
+	        if (process != null) process.destroy();
+	    }
 	}
 		
 	/**
@@ -324,23 +304,55 @@ public class MediaSortTask extends Task<Path> {
 	    }
 	}
 	
-	private void afterMove(Path file,Long hrsOffset) throws IOException
-	{
-		String fileName = file.getFileName().toString();
-		String fileExt = MediaSortUtils.getFileExtension(fileName).toLowerCase();
-		if (msc.isTranscodeVideos() && fileExt.equals("mp4") && !fileName.contains(TRANSCODED_VIDEO_SUFFIX))
-		{
-			transcodeVideo(file);
-			return;
-		}
-		
-		boolean isImage = MediaSortUtils.imageExtensions.contains(fileExt);		
-		if (isImage && hrsOffset != 0l) {
-			String newDateTime = findCreationDt(file,hrsOffset).format(imageDtf);
-			if (changeDateTimeOrig(file, newDateTime)) {
-				logger.info("Changed EXIF date of {} to {}",file.getFileName(),newDateTime);
-			}
-		}		
+	private Path shouldConvertVideo(Path file, FileInfo info) throws IOException {
+	    if (!msc.isTranscodeVideos() || info.name().endsWith(TRANSCODED_VIDEO_SUFFIX) ||
+	        !MediaSortUtils.videoExtensions.contains(info.ext())) {
+	        return null;
+	    }
+	    Path output = file.getParent().resolve(info.base() + TRANSCODED_VIDEO_SUFFIX + ".mp4");
+	    if (Files.exists(output)) return null;
+	    long sizeMB = Files.size(file) / (1024 * 1024);
+	    boolean isMovOrAvi = info.ext().equals("avi") || info.ext().equals("mov");
+	    boolean tooLarge = sizeMB > MAX_ML_UPLOAD_SIZE_VIDEO;
+	    return (isMovOrAvi || tooLarge) ? output : null;
+	}
+
+	private Path shouldExtractAudio(Path file, FileInfo info) {
+	    if (!msc.isExtractAudio() || !MediaSortUtils.videoExtensions.contains(info.ext())) {
+	        return null;
+	    }
+	    Path output = file.getParent().resolve(info.base() + ".mp3");
+	    return Files.exists(output) ? null : output;
+	}
+
+	private void afterMove(Path file, Long hrsOffset) throws IOException {
+	    FileInfo info = new FileInfo(file);
+
+	    Path converted = shouldConvertVideo(file, info);
+	    if (converted != null) {
+	        logger.info("{} transcoding to MP4 with ffmpeg...", info.name());
+	        if (runFfmpeg(new String[]{"ffmpeg", "-i", file.toString(), "-map_metadata", "0", "-c:v", "libx264",
+	                "-crf", "22", "-preset", "medium", "-c:a", "aac", "-b:a", "128k", "-movflags", "+faststart",
+	                "-max_muxing_queue_size", "1024", converted.toString()}, "video transcoding")) {
+	            logger.info("Saved converted video to {}", converted.getFileName());
+	        }
+	    }
+
+	    Path extracted = shouldExtractAudio(file, info);
+	    if (extracted != null) {
+	        logger.info("Extracting audio from {} to MP3 with ffmpeg...", info.name());
+	        if (runFfmpeg(new String[]{"ffmpeg", "-i", file.toString(), "-vn", "-c:a", "mp3", "-b:a", "192k","-map_metadata","0", extracted.toString()}, "audio extraction")) {
+	            logger.info("Saved extracted audio to {}", extracted.getFileName());
+	        }
+	    }
+
+	    boolean isImage = MediaSortUtils.imageExtensions.contains(info.ext());
+	    if (isImage && hrsOffset != 0L) {
+	        String newDt = findCreationDt(file, hrsOffset).format(imageDtf);
+	        if (changeDateTimeOrig(file, newDt)) {
+	            logger.info("Changed EXIF date of {} to {}", file.getFileName(), newDt);
+	        }
+	    }
 	}
 	
 	@SuppressWarnings("resource")
