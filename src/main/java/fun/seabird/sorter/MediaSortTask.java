@@ -170,7 +170,8 @@ public class MediaSortTask extends Task<Path> {
 		return Files.move(from, to);
 	}		
 
-	private static boolean runFfmpeg(String[] command, String operation) {
+	private static boolean runFfmpeg(String[] command, String operation) 
+	{
 	    ProcessBuilder pb = new ProcessBuilder(command);
 	    pb.redirectError(ProcessBuilder.Redirect.DISCARD);
 	    pb.redirectOutput(ProcessBuilder.Redirect.DISCARD);
@@ -331,9 +332,7 @@ public class MediaSortTask extends Task<Path> {
 	    Path converted = shouldConvertVideo(file, info);
 	    if (converted != null) {
 	        logger.info("{} transcoding to MP4 with ffmpeg...", info.name());
-	        if (runFfmpeg(new String[]{"ffmpeg", "-i", file.toString(), "-map_metadata", "0", "-c:v", "libx264",
-	                "-crf", "22", "-preset", "medium", "-c:a", "aac", "-b:a", "128k", "-movflags", "+faststart",
-	                "-max_muxing_queue_size", "1024", converted.toString()}, "video transcoding")) {
+	        if (runFfmpeg(new String[]{"ffmpeg", "-threads", "1", "-i", file.toString(), "-map_metadata", "0", "-c:v", "libx264", "-threads", "2", "-crf", "22", "-preset", "medium", "-c:a", "copy", converted.toString()}, "video transcoding")) {
 	            logger.info("Saved converted video to {}", converted.getFileName());
 	        }
 	    }
