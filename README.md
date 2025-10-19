@@ -1,17 +1,17 @@
 # eBird Media Sorter
-This program organizes photos, audio, and video files on your file system by date or location, using information from your downloaded eBird data CSV file. It also allows you to adjust the EXIF creation date of images in bulk. The files are sorted into folders named with their creation date, such as `2022-01-29/`, and if a checklistId match is found, additional sub-folders are created for each checklist, such as `2022-01-29/S2626262/`. Once the sorting process is complete, the program generates a CSV index file for all checklistId matches, making it easy for you to prioritize which lists to upload media for and to keep track of which ones you have already completed.
+This program organizes photos, audio, and video files on your file system by date or location, using information from your downloaded eBird data CSV file. It also allows you to adjust the EXIF creation date of JPEG images in bulk. The files are sorted into folders named with their creation date, such as `2025-10-10/`, and if a checklistId match is found, additional sub-folders are created for each checklist, such as `2025-10-10/US-TN_Hamilton_Standifer-Gap-Marsh_S278333280`. Once the sorting process is complete, the program generates a CSV index file for all checklistId matches, making it easy for you to prioritize which lists to upload media for and to keep track of which ones you have already completed.
 
 # Usage
 
 1. Download your eBird data from https://ebird.org/downloadMyData and extract the CSV file<br/>
-2. Download a (non-headless) Java JRE, minimum Version 24 if it's not already installed. To check current installation status and what version you have, open a command prompt and type `java -version`. Newer versions can be obtained using the following<br/>
-    - Windows/Mac: From https://jdk.java.net/24/<br/>
-    - Linux: from command line run `sudo apt install openjdk-24-jre`<br/>
+2. Download a (non-headless) Java JRE, minimum Version 25 if it's not already installed. To check current installation status and what version you have, open a command prompt and type `java -version`. Newer versions can be obtained using the following<br/>
+    - Windows/Mac: From https://jdk.java.net/25/<br/>
+    - Linux: from command line run `sudo apt install openjdk-25-jre`<br/>
 3. Browse to [RELEASES](../../releases) in this repo and download the latest `ebird-media-sorter-[version].jar` file
 4. Open a command prompt and switch to the directory (e.g. `cd C:/downloads`) that has your downloaded JAR file<br/>
 5. Run the program by typing in the command prompt: `java -jar ebird-media-sorter-[version].jar`<br/>
 
-Warning: This program by default moves any eBird-supported photo, video, or audio file to date (YYYY-MM-DD) subdirectories whether it finds a checklistId match or not. If a creation date cannot be read from EXIF, it looks for a date in the beginning of the file name, and finally file last-modified date is used. If you have already grouped your media in some other fashion, you may want to use the checkbox to generate symbolic (shorcut) link files instead. I recommend starting with a small media directory first to understand the process. 
+Note: This program by default moves any eBird-supported photo, video, or audio file to date (YYYY-MM-DD) subdirectories whether it finds a checklistId match or not. If a creation date cannot be read from EXIF, it looks for a date in the beginning of the file name, and finally the file last-modified date is used. If you have already grouped your media in some other fashion, you may want to use the checkbox to generate symbolic (shorcut) link files instead. I recommend starting with a small media directory first to understand the process. 
 
 # Screenshots
 
