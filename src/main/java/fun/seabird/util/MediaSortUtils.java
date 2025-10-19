@@ -2,19 +2,19 @@ package fun.seabird.util;
 
 import java.io.IOException;
 import java.nio.file.Path;
-import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import org.apache.commons.imaging.Imaging;
-import org.apache.commons.imaging.common.ImageMetadata;
-import org.apache.commons.imaging.common.ImageMetadata.ImageMetadataItem;
 import org.apache.commons.imaging.formats.jpeg.JpegImageMetadata;
-import org.apache.commons.lang3.Strings;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public final class MediaSortUtils 
 {
+	private static final Logger log = LoggerFactory.getLogger(MediaSortUtils.class);
+	
 	private MediaSortUtils () {};
 	
 	public static final String OUTPUT_FOLDER_NAME = "ebird";
@@ -40,32 +40,15 @@ public final class MediaSortUtils
 	
 	/**
 	 * @param jpegImageFile
-	 * @return NULL if not an image or image is from an Apple or Google device--the
-	 *         metadata otherwise
+	 * @return NULL if not an image, the metadata otherwise
 	 */
-	public static JpegImageMetadata shouldAdjustExif(byte[] jpegImageFile) {
-		ImageMetadata metadata;
-		try {
-			metadata = Imaging.getMetadata(jpegImageFile);
-		} catch (IOException e) {
-			e.printStackTrace();
-			return null;
-		}
-
-		if (!(metadata instanceof JpegImageMetadata))
-			return null;
-
-		JpegImageMetadata jpegMetadata = (JpegImageMetadata) metadata;
-
-		// Don't adjust EXIF offset for mobile phones
-		List<ImageMetadataItem> items = jpegMetadata.getItems();
-		for (ImageMetadataItem item : items) {
-			String itemStr = item.toString();
-			if (Strings.CI.contains(itemStr, "Make") && Strings.CI.containsAny(itemStr, "Apple", "Google"))
-				return null;
-		}
-
-		return jpegMetadata;
-	}	
+	public static JpegImageMetadata jpegImageMetadata(byte[] jpegImageFile) {
+	    try {
+	        return Imaging.getMetadata(jpegImageFile) instanceof JpegImageMetadata meta ? meta : null;
+	    } catch (IOException e) {
+	        log.warn("Error reading JPEG metadata", e);
+	        return null;
+	    }
+	}
 	
 }

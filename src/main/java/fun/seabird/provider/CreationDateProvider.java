@@ -24,11 +24,11 @@ public interface CreationDateProvider
 		}
 	}
 	
-	default LocalDateTime parseTime(String dateTimeOrigStr,DateTimeFormatter dtf,Long hrsOffset)
+	default LocalDateTime parseTime(String dateTimeOrigStr,DateTimeFormatter dtf,long hrsOffset)
 	{
 		LocalDateTime mediaTime = parseTime(dateTimeOrigStr,dtf);
-		return mediaTime == null ? null : mediaTime.plusHours(hrsOffset);
+		return mediaTime == null ? null : (hrsOffset == 0l ? mediaTime : mediaTime.plusHours(hrsOffset));
 	}
 	
-	LocalDateTime findCreationDate(Path f,Long hrsOffset) throws IOException;
+	LocalDateTime findCreationDate(Path f,long hrsOffset) throws IOException;
 }

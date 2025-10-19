@@ -29,7 +29,7 @@ public class FileNameCreationDateProvider implements CreationDateProvider
 	 * @param hrsOffset the offset in hours to add or subtract from the creation date (can be null)
 	 * @return the creation date of the file, or null if it cannot be determined
 	 */
-	public LocalDateTime findCreationDate(Path f,Long hrsOffset)
+	public LocalDateTime findCreationDate(Path f,long hrsOffset)
 	{
 		String fileName = f.getFileName().toString();
 		String dateTimeOrigStr = StringUtils.left(fileName,16);

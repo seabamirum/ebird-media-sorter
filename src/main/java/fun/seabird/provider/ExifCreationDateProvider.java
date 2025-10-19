@@ -7,6 +7,9 @@ import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.drew.imaging.ImageMetadataReader;
 import com.drew.imaging.ImageProcessingException;
 import com.drew.metadata.Directory;
@@ -22,6 +25,8 @@ import fun.seabird.util.MediaSortUtils;
 
 public class ExifCreationDateProvider implements CreationDateProvider
 {
+	private static final Logger log = LoggerFactory.getLogger(ExifCreationDateProvider.class);
+	
 	private static final DateTimeFormatter imageDtf = DateTimeFormatter.ofPattern("yyyy:MM:dd HH:mm:ss");	
 
 	/**
@@ -54,7 +59,7 @@ public class ExifCreationDateProvider implements CreationDateProvider
 	 * </ul>
 	 */
 	@Override
-	public LocalDateTime findCreationDate(Path f, Long hrsOffset) throws IOException {
+	public LocalDateTime findCreationDate(Path f, long hrsOffset) throws IOException {
 	    String fileName = f.getFileName().toString();
 	    String fileExt = MediaSortUtils.getFileExtension(fileName).toLowerCase();        
 
@@ -67,9 +72,9 @@ public class ExifCreationDateProvider implements CreationDateProvider
 	        try {
 	            metadata = ImageMetadataReader.readMetadata(mediaStream);        
 	        } catch (ImageProcessingException ipe) {
-	            System.err.println("Error reading " + fileName + ": " + ipe);
-	        } catch (StringIndexOutOfBoundsException sobe) {
-	            System.err.println("Error reading " + fileName + ": " + sobe);
+	        	log.warn("Error reading " + fileName,ipe);
+	        } catch (IOException ioe) {
+	        	log.warn("Error reading " + fileName,ioe);
 	        }
 	    }
 	    
@@ -107,11 +112,7 @@ public class ExifCreationDateProvider implements CreationDateProvider
 	            
 	            dateTimeOrigStr = directory.getString(creationTimeTag);
 	        }
-	    }
-	    
-	    if (hrsOffset == 0L || (isImage && MediaSortUtils.shouldAdjustExif(Files.readAllBytes(f)) == null)) {
-	        return parseTime(dateTimeOrigStr, dtf);
-	    }
+	    }	    
 	    
 	    return parseTime(dateTimeOrigStr, dtf, hrsOffset);
 	}

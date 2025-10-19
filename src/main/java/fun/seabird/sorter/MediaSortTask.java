@@ -114,7 +114,7 @@ public class MediaSortTask extends Task<Path> {
 	private static boolean changeDateTimeOrig(Path imageFile, String newDateTime) throws IOException {
 		byte[] originalImageBytes = Files.readAllBytes(imageFile);
 
-		JpegImageMetadata jpegMetadata = MediaSortUtils.shouldAdjustExif(originalImageBytes);
+		JpegImageMetadata jpegMetadata = MediaSortUtils.jpegImageMetadata(originalImageBytes);
 		if (jpegMetadata == null)
 			return false;
 
@@ -159,9 +159,16 @@ public class MediaSortTask extends Task<Path> {
 	 */
 	private Path moveFile(Path from, Path to) throws IOException 
 	{
-		if (Files.exists(to)) {
-			logger.error(to + " already exists!! Source file left in original location.");
-			return from;
+		if (Files.exists(to)) 
+		{			
+			if (Files.size(from) != Files.size(to))
+			{
+				logger.warn(to + " already exists and is likely different!! Source file left in original location.");
+				return from;
+			}
+			
+			Files.delete(from);
+			return to;
 		}
 		
 		if (msc.isUseSymbolicLinks())
@@ -198,7 +205,7 @@ public class MediaSortTask extends Task<Path> {
 	 * @return a LocalDateTime for the media file, never null
 	 * @throws IOException
 	 */
-	private static LocalDateTime findCreationDt(Path file,Long hrsOffset) throws IOException
+	private static LocalDateTime findCreationDt(Path file,long hrsOffset) throws IOException
 	{
 		LocalDateTime mediaTime = null;
 		for (CreationDateProvider cdp : creationDateProviders) {
@@ -258,7 +265,7 @@ public class MediaSortTask extends Task<Path> {
 	 * @param folderGroup  The folder grouping mode.
 	 * @throws IOException If an I/O error occurs while performing the operation.
 	 */
-	private Path checkMetadataAndMove(Path file, Path outputDir, Long hrsOffset,boolean sepYearDir,FolderGroup folderGroup) throws IOException {
+	private Path checkMetadataAndMove(Path file, Path outputDir, long hrsOffset,boolean sepYearDir,FolderGroup folderGroup) throws IOException {
 		
 		final LocalDateTime mediaTime = findCreationDt(file,hrsOffset);
 
@@ -326,7 +333,7 @@ public class MediaSortTask extends Task<Path> {
 	    return Files.exists(output) ? null : output;
 	}
 
-	private void afterMove(Path file, Long hrsOffset) throws IOException {
+	private void afterMove(Path file) throws IOException {
 	    FileInfo info = new FileInfo(file);
 
 	    Path converted = shouldConvertVideo(file, info);
@@ -345,9 +352,9 @@ public class MediaSortTask extends Task<Path> {
 	        }
 	    }
 
-	    boolean isImage = MediaSortUtils.imageExtensions.contains(info.ext());
-	    if (isImage && hrsOffset != 0L) {
-	        String newDt = findCreationDt(file, hrsOffset).format(imageDtf);
+	    if (msc.getHrsOffset() != 0L && ("jpg".equals(info.ext()) || "jpeg".equals(info.ext())))
+	    {
+	        String newDt = findCreationDt(file, msc.getHrsOffset()).format(imageDtf);
 	        if (changeDateTimeOrig(file, newDt)) {
 	            logger.info("Changed EXIF date of {} to {}", file.getFileName(), newDt);
 	        }
@@ -404,7 +411,7 @@ public class MediaSortTask extends Task<Path> {
 		String outputDirName = MediaSortUtils.OUTPUT_FOLDER_NAME + "_" + Instant.now().toEpochMilli();
 		Path outputDir = mediaPath.resolve(outputDirName);
 
-		Long hrsOffset = msc.getHrsOffset();
+		long hrsOffset = msc.getHrsOffset();
 		
 		logger.info("Analyzing files...");
 		List<Path> eligibleFiles = new ArrayList<>();
@@ -443,7 +450,7 @@ public class MediaSortTask extends Task<Path> {
 			logger.info("Finishing up...");
 		
 		for (Path f : movedFiles)
-			afterMove(f,hrsOffset);
+			afterMove(f);
 
 		if (msc.isCreateSubDir()) {
 			Path finalOutputDir = mediaPath.resolve(MediaSortUtils.OUTPUT_FOLDER_NAME);

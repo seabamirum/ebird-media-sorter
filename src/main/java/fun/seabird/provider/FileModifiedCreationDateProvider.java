@@ -11,7 +11,7 @@ public class FileModifiedCreationDateProvider implements CreationDateProvider
 	final LocalDateTime nineteenHundred = parseTime("1900:01:01 00:00:00",imageDtf);	
 
 	@Override
-	public LocalDateTime findCreationDate(Path f,Long hrsOffset) throws IOException
+	public LocalDateTime findCreationDate(Path f,long hrsOffset) throws IOException
 	{
 		Long epoch = Files.getLastModifiedTime(f).toMillis();
 		if (epoch == 0L)

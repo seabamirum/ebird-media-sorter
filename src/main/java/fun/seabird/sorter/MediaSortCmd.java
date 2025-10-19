@@ -5,7 +5,7 @@ import java.nio.file.Path;
 public class MediaSortCmd 
 {	
 	private Path mediaPath;
-	private Long hrsOffset = 0l;
+	private long hrsOffset = 0l;
 	
 	private Path csvFile;
 	private boolean reParseCsv=true;
@@ -17,7 +17,7 @@ public class MediaSortCmd
 	private boolean useSymbolicLinks = false;
 	private FolderGroup folderGroup = FolderGroup.date;	
 
-	public Long getHrsOffset() {
+	public long getHrsOffset() {
 		return hrsOffset;
 	}
 	public void setHrsOffset(Long hrsOffset) {
