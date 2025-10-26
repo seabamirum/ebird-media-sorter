@@ -72,9 +72,9 @@ public class ExifCreationDateProvider implements CreationDateProvider
 	        try {
 	            metadata = ImageMetadataReader.readMetadata(mediaStream);        
 	        } catch (ImageProcessingException ipe) {
-	        	log.warn("Error reading " + fileName,ipe);
+	        	log.warn("Error reading metadata from " + fileName,ipe);
 	        } catch (IOException ioe) {
-	        	log.warn("Error reading " + fileName,ioe);
+	        	log.warn("Error reading metadata from " + fileName,ioe);
 	        }
 	    }
 	    

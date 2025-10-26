@@ -5,8 +5,10 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.SimpleFileVisitor;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.time.Instant;
@@ -53,7 +55,7 @@ public class MediaSortTask extends Task<Path> {
 	private static final DateTimeFormatter imageDtf = DateTimeFormatter.ofPattern("yyyy:MM:dd HH:mm:ss");
 	private static final DateTimeFormatter folderDtf = DateTimeFormatter.ofPattern("yyyy-MM-dd");	
 
-	private static final int LOGGING_WINDOW_SIZE = 100;
+	private static final int LOGGING_WINDOW_SIZE = 1000;
 	private static final long MAX_ML_UPLOAD_SIZE_VIDEO = 1000l;
 	private static final String TRANSCODED_VIDEO_SUFFIX = "_s";
 
@@ -163,7 +165,7 @@ public class MediaSortTask extends Task<Path> {
 		{			
 			if (Files.size(from) != Files.size(to))
 			{
-				logger.warn(to + " already exists and is likely different!! Source file left in original location.");
+				logger.warn(to.getFileName() + " exists and likely differs. Source file unchanged.");
 				return from;
 			}
 			
@@ -286,30 +288,27 @@ public class MediaSortTask extends Task<Path> {
 	}
 	
 	/**
-	 * @param dir
-	 * @throws IOException
+	 * Recursively deletes empty directories starting from the given directory,
+	 * including the directory itself if empty after cleaning subdirectories.
+	 * Uses depth-first post-order traversal to ensure subdirectories are processed first.
+	 *
+	 * @param dir the starting directory to clean
+	 * @throws IOException if an I/O error occurs
 	 */
-	private static void cleanEmptyDirectories(Path dir) throws IOException {
-	    if (Files.isDirectory(dir)) {
-	        List<Path> subDirectories;
-	        try (Stream<Path> stream = Files.list(dir)) {
-	            subDirectories = stream.filter(Files::isDirectory).toList();
+	private static void cleanEmptyDirectories(Path rootDir) throws IOException {
+	    Files.walkFileTree(rootDir, new SimpleFileVisitor<Path>() {
+	        @Override
+	        public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
+	            if (exc == null) {
+	                try (Stream<Path> stream = Files.list(dir)) {
+	                    if (stream.findAny().isEmpty()) {
+	                        Files.delete(dir);	                       
+	                    }
+	                }
+	            }
+	            return FileVisitResult.CONTINUE;
 	        }
-
-	        for (Path subDir : subDirectories) {
-	            cleanEmptyDirectories(subDir);
-	        }
-
-	        List<Path> files;
-	        try (Stream<Path> stream = Files.list(dir)) {
-	            files = stream.toList();
-	        }
-
-	        if (files.isEmpty()) {
-	            Files.deleteIfExists(dir);
-	            logger.info("Deleted empty directory {}", dir);
-	        }
-	    }
+	    });
 	}
 	
 	private Path shouldConvertVideo(Path file, FileInfo info) throws IOException {
@@ -362,26 +361,27 @@ public class MediaSortTask extends Task<Path> {
 	}
 	
 	@SuppressWarnings("resource")
-	private static Path writeResults(Path mediaPath)
-	{
-		if (subIds.isEmpty())
-			return null;
-		
-		Path resultsFile = mediaPath.resolve("checklistIndex_" + Instant.now().toEpochMilli() + ".csv");
-		
-        try (CsvWriter csvWriter = CsvWriter.builder().build(resultsFile,StandardCharsets.UTF_8,StandardOpenOption.CREATE))
-        {
-        	csvWriter.writeRecord("Checklist Link", "Date", "State", "County", "Num Uploaded Assets", "Num Local Assets");
-        	
-            for (String subId : subIds) {
-                SubStats ss = checklistStatsMap.get(subId);                
-                csvWriter.writeRecord("https://ebird.org/checklist/" + subId + "/media",ss.getDate(), ss.getSubnational1Code(), ss.getCounty(),String.valueOf(ss.getNumAssetsUploaded()),String.valueOf(ss.getNumAssetsLocal()));
-            }
-        } catch (IOException e) {
-            logger.error("Error writing CSV!",e);
-        }
+	private static Path writeResults(Path mediaPath) {
+	    if (subIds.isEmpty()) return null;
+	    
+	    Path file = mediaPath.resolve("checklistIndex_" + Instant.now().toEpochMilli() + ".csv");
+	    
+	    try (var w = CsvWriter.builder().build(file, StandardCharsets.UTF_8, StandardOpenOption.CREATE)) {
+	        w.writeRecord("Checklist Link", "Date", "State", "County", "Num Uploaded Assets", "Num Local Assets");
 	        
-	    return resultsFile;
+	        for (String id : subIds) {
+	            var s = checklistStatsMap.get(id);
+	            w.writeRecord(
+	                "https://ebird.org/checklist/" + id + "/media",
+	                s.getDate(), s.getSubnational1Code(), s.getCounty(),
+	                Integer.toString(s.getNumAssetsUploaded()),
+	                Integer.toString(s.getNumAssetsLocal())
+	            );
+	        }
+	    } catch (IOException e) {
+	        logger.error("Error writing CSV!", e);
+	    }
+	    return file;
 	}
 
 	/**
@@ -419,7 +419,7 @@ public class MediaSortTask extends Task<Path> {
 		    stream.filter(MediaSortTask::isEligibleMediaFile)
 		    	.sorted(Comparator.comparing(Path::getFileName))
 		        .gather(Gatherers.windowFixed(LOGGING_WINDOW_SIZE))
-		        .peek(window -> logger.info("Added 100 files to processing queue ({} total)...",(eligibleFiles.size() + window.size())))
+		        .peek(window -> logger.info("Added files to processing queue ({} total)...",(eligibleFiles.size() + window.size())))
 		        .forEach(eligibleFiles::addAll);
 		}
 
