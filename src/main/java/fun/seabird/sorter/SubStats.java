@@ -4,6 +4,11 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+
+@Getter
+@RequiredArgsConstructor
 class SubStats 
 {
 	private static final DateTimeFormatter indexDtf = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
@@ -14,14 +19,7 @@ class SubStats
 	private final String locName;
 
 	private AtomicInteger numAssetsUploaded = new AtomicInteger(0);
-	private AtomicInteger numAssetsLocal = new AtomicInteger(0);
-
-	public SubStats(LocalDateTime date, String subnational1Code, String county,String locName) {
-		this.date = date;
-		this.subnational1Code = subnational1Code;
-		this.county = county;
-		this.locName = locName;
-	}
+	private AtomicInteger numAssetsLocal = new AtomicInteger(0);	
 
 	public Integer getNumAssetsLocal() {
 		return numAssetsLocal.get();
@@ -41,21 +39,5 @@ class SubStats
 
 	public int getNumAssetsUploaded() {
 		return numAssetsUploaded.get();
-	}
-
-	public static DateTimeFormatter getIndexdtf() {
-		return indexDtf;
-	}
-
-	public String getSubnational1Code() {
-		return subnational1Code;
-	}
-
-	public String getCounty() {
-		return county;
-	}
-
-	public String getLocName() {
-		return locName;
 	}
 }

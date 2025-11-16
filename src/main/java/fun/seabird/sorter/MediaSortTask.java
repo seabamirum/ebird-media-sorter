@@ -31,8 +31,6 @@ import org.apache.commons.imaging.formats.tiff.constants.ExifTagConstants;
 import org.apache.commons.imaging.formats.tiff.write.TiffOutputDirectory;
 import org.apache.commons.imaging.formats.tiff.write.TiffOutputSet;
 import org.apache.commons.lang3.StringUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import com.google.common.collect.Range;
 import com.google.common.collect.RangeMap;
@@ -48,10 +46,11 @@ import fun.seabird.provider.FileModifiedCreationDateProvider;
 import fun.seabird.provider.FileNameCreationDateProvider;
 import fun.seabird.util.MediaSortUtils;
 import javafx.concurrent.Task;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 public class MediaSortTask extends Task<Path> {
 		
-	private static final Logger logger = LoggerFactory.getLogger(MediaSortTask.class);
 	private static final DateTimeFormatter imageDtf = DateTimeFormatter.ofPattern("yyyy:MM:dd HH:mm:ss");
 	private static final DateTimeFormatter folderDtf = DateTimeFormatter.ofPattern("yyyy-MM-dd");	
 
@@ -165,7 +164,7 @@ public class MediaSortTask extends Task<Path> {
 		{			
 			if (Files.size(from) != Files.size(to))
 			{
-				logger.warn(to.getFileName() + " exists and likely differs. Source file unchanged.");
+				log.warn(to.getFileName() + " exists and likely differs. Source file unchanged.");
 				return from;
 			}
 			
@@ -189,12 +188,12 @@ public class MediaSortTask extends Task<Path> {
 	        process = pb.start();
 	        int res = process.waitFor();
 	        if (res != 0) {
-	            logger.warn("FFmpeg {} failed with exit code {}", operation, res);
+	            log.warn("FFmpeg {} failed with exit code {}", operation, res);
 	            return false;
 	        }
 	        return true;
 	    } catch (InterruptedException | IOException e) {
-	        logger.error("Cannot perform FFmpeg {}", operation, e);
+	        log.error("Cannot perform FFmpeg {}", operation, e);
 	        return false;
 	    } finally {
 	        if (process != null) process.destroy();
@@ -337,17 +336,17 @@ public class MediaSortTask extends Task<Path> {
 
 	    Path converted = shouldConvertVideo(file, info);
 	    if (converted != null) {
-	        logger.info("{} transcoding to MP4 with ffmpeg...", info.name());
+	        log.info("{} transcoding to MP4 with ffmpeg...", info.name());
 	        if (runFfmpeg(new String[]{"ffmpeg", "-threads", "1", "-i", file.toString(), "-map_metadata", "0", "-c:v", "libx264", "-threads", "2", "-crf", "22", "-preset", "medium", "-c:a", "copy", converted.toString()}, "video transcoding")) {
-	            logger.info("Saved converted video to {}", converted.getFileName());
+	            log.info("Saved converted video to {}", converted.getFileName());
 	        }
 	    }
 
 	    Path extracted = shouldExtractAudio(file, info);
 	    if (extracted != null) {
-	        logger.info("Extracting audio from {} to MP3 with ffmpeg...", info.name());
+	        log.info("Extracting audio from {} to MP3 with ffmpeg...", info.name());
 	        if (runFfmpeg(new String[]{"ffmpeg", "-i", file.toString(), "-vn", "-c:a", "mp3", "-b:a", "192k","-map_metadata","0", extracted.toString()}, "audio extraction")) {
-	            logger.info("Saved extracted audio to {}", extracted.getFileName());
+	            log.info("Saved extracted audio to {}", extracted.getFileName());
 	        }
 	    }
 
@@ -355,7 +354,7 @@ public class MediaSortTask extends Task<Path> {
 	    {
 	        String newDt = findCreationDt(file, msc.getHrsOffset()).format(imageDtf);
 	        if (changeDateTimeOrig(file, newDt)) {
-	            logger.info("Changed EXIF date of {} to {}", file.getFileName(), newDt);
+	            log.info("Changed EXIF date of {} to {}", file.getFileName(), newDt);
 	        }
 	    }
 	}
@@ -379,7 +378,7 @@ public class MediaSortTask extends Task<Path> {
 	            );
 	        }
 	    } catch (IOException e) {
-	        logger.error("Error writing CSV!", e);
+	        log.error("Error writing CSV!", e);
 	    }
 	    return file;
 	}
@@ -413,18 +412,18 @@ public class MediaSortTask extends Task<Path> {
 
 		long hrsOffset = msc.getHrsOffset();
 		
-		logger.info("Analyzing files...");
+		log.info("Analyzing files...");
 		List<Path> eligibleFiles = new ArrayList<>();
 		try (Stream<Path> stream = Files.walk(mediaPath)) {		    
 		    stream.filter(MediaSortTask::isEligibleMediaFile)
 		    	.sorted(Comparator.comparing(Path::getFileName))
 		        .gather(Gatherers.windowFixed(LOGGING_WINDOW_SIZE))
-		        .peek(window -> logger.info("Added files to processing queue ({} total)...",(eligibleFiles.size() + window.size())))
+		        .peek(window -> log.info("Added files to processing queue ({} total)...",(eligibleFiles.size() + window.size())))
 		        .forEach(eligibleFiles::addAll);
 		}
 
 		if (eligibleFiles.isEmpty()) {
-			logger.info("No eligible media files found.");
+			log.info("No eligible media files found.");
 			updateProgress(1.0, 1.0);
 			return null;
 		}
@@ -432,7 +431,7 @@ public class MediaSortTask extends Task<Path> {
 		boolean sepYearDir = msc.isSepYear();
 		int numFiles = eligibleFiles.size();
 		int j = 1;
-		logger.info("Processing {} files in {} and subdirectories...",numFiles,mediaPath);
+		log.info("Processing {} files in {} and subdirectories...",numFiles,mediaPath);
 		List<Path> movedFiles = new ArrayList<>(numFiles);
 		for (Path f : eligibleFiles) {
 			
@@ -445,9 +444,9 @@ public class MediaSortTask extends Task<Path> {
 		}
 		
 		if (hrsOffset != 0l)
-			logger.info("Adjusting EXIF data (may take a while)...");
+			log.info("Adjusting EXIF data (may take a while)...");
 		else		
-			logger.info("Finishing up...");
+			log.info("Finishing up...");
 		
 		for (Path f : movedFiles)
 			afterMove(f);
@@ -455,7 +454,7 @@ public class MediaSortTask extends Task<Path> {
 		if (msc.isCreateSubDir()) {
 			Path finalOutputDir = mediaPath.resolve(MediaSortUtils.OUTPUT_FOLDER_NAME);
 			if (Files.exists(finalOutputDir))
-				logger.error("Directory {} already exists! Check {} for results.",finalOutputDir,outputDir);
+				log.error("Directory {} already exists! Check {} for results.",finalOutputDir,outputDir);
 			else
 				Files.move(outputDir, finalOutputDir, StandardCopyOption.ATOMIC_MOVE);
 		} else {
@@ -478,12 +477,12 @@ public class MediaSortTask extends Task<Path> {
 		
 		Path resultsFile = writeResults(mediaPath);
         
-        logger.info("Deleting empty directories...");
+        log.info("Deleting empty directories...");
         cleanEmptyDirectories(mediaPath);
         
 		updateProgress(1.0, 1.0);
 
-		logger.info("ALL DONE! :-)");
+		log.info("ALL DONE! :-)");
 		return resultsFile;
 
 	}

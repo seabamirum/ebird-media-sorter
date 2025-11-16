@@ -2,15 +2,10 @@ package fun.seabird.sorter;
 
 import java.nio.file.Path;
 
+import lombok.Data;
+
+@Data
 public class MediaSortResult 
 {
 	private Path indexPath;
-
-	public Path getIndexPath() {
-		return indexPath;
-	}
-
-	public void setIndexPath(Path indexPath) {
-		this.indexPath = indexPath;
-	}
 }
