@@ -19,7 +19,6 @@ import com.drew.metadata.exif.ExifDirectoryBase;
 import com.drew.metadata.exif.ExifSubIFDDirectory;
 import com.drew.metadata.mov.media.QuickTimeMediaDirectory;
 import com.drew.metadata.mp4.Mp4Directory;
-import com.drew.metadata.wav.WavDirectory;
 
 import fun.seabird.util.MediaSortUtils;
 
@@ -28,92 +27,60 @@ public class ExifCreationDateProvider implements CreationDateProvider
 	private static final Logger log = LoggerFactory.getLogger(ExifCreationDateProvider.class);
 	
 	private static final DateTimeFormatter imageDtf = DateTimeFormatter.ofPattern("yyyy:MM:dd HH:mm:ss");	
+	
+	private static Directory getVideoDirectory(Metadata metadata, String ext) {
+	    return switch (ext) {
+	        case "mp4" -> metadata.getFirstDirectoryOfType(Mp4Directory.class);
+	        case "mov" -> metadata.getFirstDirectoryOfType(QuickTimeMediaDirectory.class);
+	        case "avi" -> metadata.getFirstDirectoryOfType(AviDirectory.class);
+	        default -> null;
+	    };
+	}
 
-	/**
-	 * Attempts to determine the creation date of a media file (image, audio, or video) by reading its metadata.
-	 * The method supports various file extensions and uses specific logic based on the file type to locate the
-	 * correct metadata indicating the file's creation date. For images, audio, and video files, different metadata
-	 * directories are queried. The method also allows for adjusting the returned date based on a specified hour offset,
-	 * which is particularly useful for correcting timezone differences in the timestamps of images.
-	 *
-	 * @param f the {@link Path} to the media file for which the creation date is being sought.
-	 * @param hrsOffset the offset in hours to be applied to the creation date. This is useful for adjusting
-	 *                  the creation timestamp of the file to account for timezone differences or incorrect
-	 *                  camera settings. A value of 0 indicates no adjustment is to be made.
-	 * @return a {@link LocalDateTime} representing the creation date of the file, adjusted by the specified
-	 *         hour offset if applicable. Returns {@code null} if the creation date could not be determined
-	 *         or if errors occur during metadata reading that prevent determining the date.
-	 * @throws IOException if an error occurs while opening the file or reading its contents.
-	 * 
-	 * <p>Notes:</p>
-	 * <ul>
-	 *     <li>The method reads metadata using {@link ImageMetadataReader} and can handle exceptions like
-	 *     {@link ImageProcessingException} and {@link StringIndexOutOfBoundsException} by logging them
-	 *     to standard error without throwing them further.</li>
-	 *     <li>Supports a range of media types including images, audio, and videos, with specific handling
-	 *     based on file extensions.</li>
-	 *     <li>If the media file's metadata does not contain a creation date or if the file type is unsupported,
-	 *     the method may return {@code null}.</li>
-	 *     <li>The accuracy of the returned creation date depends on the presence and correctness of metadata
-	 *     in the media file.</li>
-	 * </ul>
-	 */
+	private static int getVideoTag(String ext) {
+	    return switch (ext) {
+	        case "mp4" -> Mp4Directory.TAG_CREATION_TIME;
+	        case "mov" -> QuickTimeMediaDirectory.TAG_CREATION_TIME;
+	        case "avi" -> AviDirectory.TAG_DATETIME_ORIGINAL;
+	        default -> throw new IllegalArgumentException("Unsupported video extension: " + ext);
+	    };
+	}
+	
 	@Override
 	public LocalDateTime findCreationDate(Path f, long hrsOffset) throws IOException {
 	    String fileName = f.getFileName().toString();
-	    String fileExt = MediaSortUtils.getFileExtension(fileName).toLowerCase();        
+	    String fileExt = MediaSortUtils.getFileExtension(fileName).toLowerCase();
 
 	    boolean isImage = MediaSortUtils.imageExtensions.contains(fileExt);
-	    boolean isAudio = MediaSortUtils.audioExtensions.contains(fileExt);
 	    boolean isVideo = MediaSortUtils.videoExtensions.contains(fileExt);
-	    
-	    Metadata metadata = null;        
-	    try (InputStream mediaStream = Files.newInputStream(f)) {
+
+	    if (!isImage && !isVideo) {
+	        return null;
+	    }
+
+	    Metadata metadata = null;
+	    try (InputStream stream = Files.newInputStream(f)) {
 	        try {
-	            metadata = ImageMetadataReader.readMetadata(mediaStream);        
-	        } catch (ImageProcessingException ipe) {
-	        	log.warn("Error reading metadata from " + fileName,ipe);
-	        } catch (IOException ioe) {
-	        	log.warn("Error reading metadata from " + fileName,ioe);
+	            metadata = ImageMetadataReader.readMetadata(stream);
+	        } catch (ImageProcessingException | IOException e) {
+	            log.warn("Error reading metadata from {}", fileName, e);
 	        }
 	    }
-	    
-	    Directory directory = null; 
-	    String dateTimeOrigStr = null;
+
+	    if (metadata == null) {
+	        return null;
+	    }
+
 	    DateTimeFormatter dtf = isImage ? imageDtf : timezoneDtf;
-	    int creationTimeTag = ExifDirectoryBase.TAG_DATETIME_ORIGINAL;
-	    if (metadata != null) {
-	        if (isImage) {
-	            directory = metadata.getFirstDirectoryOfType(ExifSubIFDDirectory.class);
-	        } else if (isVideo) {
-	            if (fileExt.equals("mp4")) {
-	                directory = metadata.getFirstDirectoryOfType(Mp4Directory.class);
-	            } else if (fileExt.equals("mov")) {
-	                directory = metadata.getFirstDirectoryOfType(QuickTimeMediaDirectory.class);                
-	            } else if (fileExt.equals("avi")) {
-	                directory = metadata.getFirstDirectoryOfType(AviDirectory.class);
-	            }
-	        } else if (isAudio && fileExt.equals("wav")) {
-	            directory = metadata.getFirstDirectoryOfType(WavDirectory.class);
-	        }
-	        
-	        if (directory != null) {
-	            if (isVideo) {
-	                if (fileExt.equals("mp4")) {
-	                    creationTimeTag = Mp4Directory.TAG_CREATION_TIME;
-	                } else if (fileExt.equals("mov")) {
-	                    creationTimeTag = QuickTimeMediaDirectory.TAG_CREATION_TIME;
-	                } else if (fileExt.equals("avi")) {
-	                    creationTimeTag = AviDirectory.TAG_DATETIME_ORIGINAL;
-	                }
-	            } else if (isAudio) {
-	                creationTimeTag = WavDirectory.TAG_DATE_CREATED;    
-	            }
-	            
-	            dateTimeOrigStr = directory.getString(creationTimeTag);
-	        }
-	    }	    
-	    
-	    return parseTime(dateTimeOrigStr, dtf, hrsOffset);
+	    Directory directory = isImage ? metadata.getFirstDirectoryOfType(ExifSubIFDDirectory.class) : getVideoDirectory(metadata, fileExt);
+
+	    if (directory == null)
+	        return null;
+
+	    int tag = isImage ? ExifDirectoryBase.TAG_DATETIME_ORIGINAL : getVideoTag(fileExt);
+	    String dateTimeStr = directory.getString(tag);
+
+	    return parseTime(dateTimeStr, dtf, hrsOffset);
 	}
+	
 }

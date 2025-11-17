@@ -61,8 +61,7 @@ public class MediaSortTask extends Task<Path> {
 	private static final String[] invalidChars = new String[] { " ", ":", ",", ".", "/", "\\", ">", "<" };
 	private static final String[] validChars = new String[] { "-", "--", "-", "-", "-", "-", "-", "-" };
 
-	private static final List<CreationDateProvider> creationDateProviders = List.of(new ExifCreationDateProvider(),
-			new FileNameCreationDateProvider(), new FileModifiedCreationDateProvider());	
+	private static final List<CreationDateProvider> creationDateProviders = List.of(new FileNameCreationDateProvider(),new ExifCreationDateProvider(),new FileModifiedCreationDateProvider());	
 	
 	//eBird CSV fields
 	private static final RangeMap<LocalDateTime, String> rangeMap = TreeRangeMap.create();
