@@ -1,17 +1,117 @@
 # eBird Media Sorter
 This program organizes photos, audio, and video files on your file system by date or location, using information from your downloaded eBird data CSV file. It also allows you to adjust the EXIF creation date of JPEG images in bulk. The files are sorted into folders named with their creation date, such as `2025-10-10/`, and if a checklistId match is found, additional sub-folders are created for each checklist, such as `2025-10-10/US-TN_Hamilton_Standifer-Gap-Marsh_S278333280`. Once the sorting process is complete, the program generates a CSV index file for all checklistId matches, making it easy for you to prioritize which lists to upload media for and to keep track of which ones you have already completed.
 
-# Usage
+# Installation and Usage Guide
 
-1. Download your eBird data from https://ebird.org/downloadMyData and extract the CSV file<br/>
-2. Download a (non-headless) Java JRE, minimum Version 25 if it's not already installed. To check current installation status and what version you have, open a command prompt and type `java -version`. Newer versions can be obtained using the following<br/>
-    - Windows/Mac: From https://jdk.java.net/25/<br/>
-    - Linux: from command line run `sudo apt install openjdk-25-jre`<br/>
-3. Browse to [RELEASES](../../releases) in this repo and download the latest `ebird-media-sorter-[version].jar` file
-4. Open a command prompt and switch to the directory (e.g. `cd C:/downloads`) that has your downloaded JAR file<br/>
-5. Run the program by typing in the command prompt: `java -jar ebird-media-sorter-[version].jar`<br/>
+## Step 1: Download Your eBird Data
 
-Note: This program by default moves any eBird-supported photo, video, or audio file to date (YYYY-MM-DD) subdirectories whether it finds a checklistId match or not. If a creation date cannot be read from EXIF, it looks for a date in the beginning of the file name, and finally the file last-modified date is used. If you have already grouped your media in some other fashion, you may want to use the checkbox to generate symbolic (shorcut) link files instead. I recommend starting with a small media directory first to understand the process. 
+1. Go to https://ebird.org/downloadMyData
+2. Download your data file
+3. Extract the CSV file from the downloaded ZIP archive to a location you'll remember (like your Downloads folder)
+
+## Step 2: Install Java
+
+**Note:** This application uses JavaFX for its user interface. I recommend installing **Liberica JRE Full** which includes JavaFX bundled in - it's simpler than the standard Oracle Java.
+
+### Windows
+
+1. **Download and install Liberica JRE Full:**
+   - Go to https://bell-sw.com/pages/downloads/
+   - Under "Java Version", select **25** (LTS - recommended)
+   - Under "Operating System", select **Windows**
+   - Under "Package", select **JRE Full** (this includes JavaFX)
+   - Click the **MSI** download button (installer with automatic setup)
+   - Run the downloaded installer and follow the prompts
+   - Leave all default settings and click through to install
+
+### macOS
+
+1. **Download and install Liberica JRE Full:**
+   - Go to https://bell-sw.com/pages/downloads/
+   - Under "Java Version", select **25** (LTS - recommended)
+   - Under "Operating System", select **macOS**
+   - Under "Architecture", select **ARM** (for Apple Silicon M1/M2/M3) or **x86** (for Intel Macs)
+   - Under "Package", select **JRE Full** (this includes JavaFX)
+   - Click the **DMG** download button
+   - Open the downloaded DMG file and drag the application to your Applications folder
+   - Follow any additional prompts to complete installation
+   - Open Terminal and verify with `java -version`
+
+### Linux (Ubuntu/Debian)
+
+1. **Install Liberica JRE Full:**
+   
+   **Option A - Using the installer (recommended):**
+   - Go to https://bell-sw.com/pages/downloads/
+   - Under "Java Version", select **25** (LTS - recommended)
+   - Under "Operating System", select **Linux**
+   - Under "Package", select **JRE Full** (this includes JavaFX)
+   - Download either the **DEB** (for Ubuntu/Debian) or **RPM** (for Fedora/RedHat) package
+   - For DEB: Run `sudo dpkg -i liberica-jre-*-full.deb` in the download directory
+   - For RPM: Run `sudo rpm -i liberica-jre-*-full.rpm` in the download directory
+   - Verify the installation with: `java -version`
+   
+   **Option B - Using package manager (Ubuntu/Debian):**
+   - Add BellSoft repository:
+     ```
+     wget -qO - https://download.bell-sw.com/pki/GPG-KEY-bellsoft | sudo apt-key add -
+     echo "deb [arch=amd64] https://apt.bell-sw.com/ stable main" | sudo tee /etc/apt/sources.list.d/bellsoft.list
+     ```
+   - Update and install:
+     ```
+     sudo apt update
+     sudo apt install bellsoft-java25-full
+     ```
+   - Verify the installation with: `java -version`
+
+## Step 3: Download the eBird Media Sorter
+
+1. Go to the [Releases page](../../releases) in this repository
+2. Download the latest `ebird-media-sorter-[version].jar` file
+3. Save it to an easy-to-find location like your Downloads folder
+
+## Step 4: Run the Program
+
+### Windows
+
+1. Press `Windows Key + R` to open the Run dialog
+2. Type `cmd` and press Enter to open Command Prompt
+3. Navigate to your Downloads folder by typing: `cd %USERPROFILE%\Downloads` and pressing Enter
+4. Run the program by typing: `java -jar ebird-media-sorter-[version].jar` (replace `[version]` with the actual version number)
+5. Press Enter
+
+### macOS
+
+1. Open Terminal (press `Command + Space`, type "Terminal", press Enter)
+2. Navigate to your Downloads folder by typing: `cd ~/Downloads` and pressing Enter
+3. Run the program by typing: `java -jar ebird-media-sorter-[version].jar` (replace `[version]` with the actual version number)
+4. Press Enter
+
+### Linux
+
+1. Open Terminal (press `Ctrl + Alt + T`)
+2. Navigate to your Downloads folder by typing: `cd ~/Downloads` and pressing Enter
+3. Run the program by typing: `java -jar ebird-media-sorter-[version].jar` (replace `[version]` with the actual version number)
+4. Press Enter
+
+---
+
+## Troubleshooting
+
+**"java is not recognized as an internal or external command"** (Windows)
+- Java is not installed or not in your PATH. Review Step 2 above.
+
+**"command not found: java"** (macOS/Linux)
+- Java is not installed. Review Step 2 above.
+
+**"Unable to access jarfile"**
+- Make sure you're in the correct directory where you downloaded the .jar file
+- Check that the filename matches exactly (including the version number)
+
+**Need more help?**
+- Open an issue in this repository with details about your operating system and the error message you're seeing
+
+
 
 # Screenshots
 
