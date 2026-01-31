@@ -6,7 +6,7 @@ This program organizes photos, audio, and video files on your file system by dat
 ## Step 1: Download Your eBird Data
 
 1. Go to https://ebird.org/downloadMyData
-2. Download your data file
+2. Download your data file after receiving the email from eBird
 3. Extract the CSV file from the downloaded ZIP archive to a location you'll remember (like your Downloads folder)
 
 ## Step 2: Install Java
@@ -30,30 +30,7 @@ This program organizes photos, audio, and video files on your file system by dat
 
 ### Linux (Ubuntu/Debian)
 
-1. **Install Liberica JRE Full:**
-   
-   **Option A - Using the installer (recommended):**
-   - Go to https://bell-sw.com/pages/downloads/
-   - Under "Java Version", select **25** (LTS - recommended)
-   - Under "Operating System", select **Linux**
-   - Under "Package", select **JRE Full** (this includes JavaFX)
-   - Download either the **DEB** (for Ubuntu/Debian) or **RPM** (for Fedora/RedHat) package
-   - For DEB: Run `sudo dpkg -i liberica-jre-*-full.deb` in the download directory
-   - For RPM: Run `sudo rpm -i liberica-jre-*-full.rpm` in the download directory
-   - Verify the installation with: `java -version`
-   
-   **Option B - Using package manager (Ubuntu/Debian):**
-   - Add BellSoft repository:
-     ```
-     wget -qO - https://download.bell-sw.com/pki/GPG-KEY-bellsoft | sudo apt-key add -
-     echo "deb [arch=amd64] https://apt.bell-sw.com/ stable main" | sudo tee /etc/apt/sources.list.d/bellsoft.list
-     ```
-   - Update and install:
-     ```
-     sudo apt update
-     sudo apt install bellsoft-java25-full
-     ```
-   - Verify the installation with: `java -version`
+1. Separate JRE installation is not required as it's included in the /bin directory of the tar.gz executable under [Releases page](../../releases)
 
 ## Step 3: Download the eBird Media Sorter
 
@@ -80,10 +57,7 @@ This program organizes photos, audio, and video files on your file system by dat
 
 ### Linux
 
-1. Open Terminal (press `Ctrl + Alt + T`)
-2. Navigate to your Downloads folder by typing: `cd ~/Downloads` and pressing Enter
-3. Run the program by typing: `java -jar ebird-media-sorter-[version].jar` (replace `[version]` with the actual version number)
-4. Press Enter
+1. Extract the downloaded tar.gz file and run the eBird Media Sorter executable in the bin directory
 
 ---
 
