@@ -16,23 +16,14 @@ This program organizes photos, audio, and video files on your file system by dat
 ### Windows
 
 1. **Download and install Liberica JRE Full:**
-   - Go to https://bell-sw.com/pages/downloads/
-   - Under "Java Version", select **25** (LTS - recommended)
-   - Under "Operating System", select **Windows**
-   - Under "Package", select **JRE Full** (this includes JavaFX)
-   - Click the **MSI** download button (installer with automatic setup)
+   - Go to https://download.bell-sw.com/java/25.0.2+12/bellsoft-jre25.0.2+12-windows-amd64-full.msi
    - Run the downloaded installer and follow the prompts
    - Leave all default settings and click through to install
 
 ### macOS
 
 1. **Download and install Liberica JRE Full:**
-   - Go to https://bell-sw.com/pages/downloads/
-   - Under "Java Version", select **25** (LTS - recommended)
-   - Under "Operating System", select **macOS**
-   - Under "Architecture", select **ARM** (for Apple Silicon M1/M2/M3) or **x86** (for Intel Macs)
-   - Under "Package", select **JRE Full** (this includes JavaFX)
-   - Click the **DMG** download button
+   - Go to https://download.bell-sw.com/java/25.0.2+12/bellsoft-jre25.0.2+12-macos-aarch64-full.dmg
    - Open the downloaded DMG file and drag the application to your Applications folder
    - Follow any additional prompts to complete installation
    - Open Terminal and verify with `java -version`
