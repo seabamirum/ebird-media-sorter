@@ -1,5 +1,27 @@
 # eBird Media Sorter
-This program organizes photos, audio, and video files on your file system by date or location, using information from your downloaded eBird data CSV file. It also allows you to adjust the EXIF creation date of JPEG images in bulk. The files are sorted into folders named with their creation date, such as `2025-10-10/`, and if a checklistId match is found, additional sub-folders are created for each checklist, such as `2025-10-10/US-TN_Hamilton_Standifer-Gap-Marsh_S278333280`. Once the sorting process is complete, the program generates a CSV index file for all checklistId matches, making it easy for you to prioritize which lists to upload media for and to keep track of which ones you have already completed.
+
+A desktop application for birders who want to efficiently organize and upload their photos, audio, and video to eBird.
+
+## What It Does
+
+**Automatically organize your media by date, location, and eBird checklistID:**
+- Matches your photos, audio, and video files to your eBird checklists using timestamps and locations
+- Creates organized folders by date (e.g., `2025-10-10/`)
+- Groups media into subfolders for each checklist (e.g., `2025-10-10/US-TN_Hamilton_Standifer-Gap-Marsh_S278333280`)
+- Generates a CSV index showing which checklists have matching media, making it easy to prioritize uploads
+
+**Fix common problems:**
+- Bulk adjust photo timestamps (perfect when you forget to change camera timezone while traveling)
+- Reduce video file sizes below the 1GB limit for easier uploading (requires ffmpeg)
+- Extract audio tracks from video files (requires ffmpeg)
+
+## How It Works
+
+1. Download your eBird data from eBird.org
+2. Point the program to your media files and eBird CSV
+3. The program matches files to checklists based on timestamps
+4. Files are organized into dated folders with checklist subfolders
+5. Review the generated index to see which checklists have media ready to upload
 
 # Installation and Usage Guide
 
