@@ -379,6 +379,11 @@ public class MediaSortTask extends Task<Path> {
 	    } catch (IOException e) {
 	        log.error("Error writing CSV!", e);
 	    }
+	    
+	    //So we don't double the counts on a second run
+	    checklistStatsMap.values().stream().forEach(ss -> ss.reset());	 
+	    subIds.clear();
+	    
 	    return file;
 	}
 
@@ -394,10 +399,7 @@ public class MediaSortTask extends Task<Path> {
 	protected Path call() throws Exception {
 		if (msc.getCsvFile() != null && msc.isReParseCsv())
 		{
-			rangeMap.clear();
-			checklistStatsMap.clear();
-			subIds.clear();
-			
+			rangeMap.clear();				
 			EbirdCsvParser.parseCsv(msc.getCsvFile(),this::parseCsvLine,PreSort.NONE);
 			
 			msc.setReParseCsv(false);			

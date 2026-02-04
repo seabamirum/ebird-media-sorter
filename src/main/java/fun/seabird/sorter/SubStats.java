@@ -20,6 +20,11 @@ class SubStats
 
 	private AtomicInteger numAssetsUploaded = new AtomicInteger(0);
 	private AtomicInteger numAssetsLocal = new AtomicInteger(0);	
+	
+	public void reset()
+	{
+		numAssetsLocal.set(0);
+	}
 
 	public Integer getNumAssetsLocal() {
 		return numAssetsLocal.get();
