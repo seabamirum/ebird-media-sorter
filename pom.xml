@@ -2,19 +2,17 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>fun.seabird</groupId>
   <artifactId>ebird-media-sorter</artifactId>
-  <version>2.5.0</version>
-  <name>ebird-media-sorter</name>
+  <version>2.5.1</version>
   
   <properties>
     <java.version>25</java.version>
-    <javafx.version>25.0.1</javafx.version>
-    <maven.compiler.source>24</maven.compiler.source>
-    <maven.compiler.target>24</maven.compiler.target>
-</properties>
+    <javafx.version>25.0.2</javafx.version>
+    <maven.compiler.source>25</maven.compiler.source>
+    <maven.compiler.target>25</maven.compiler.target>
+  </properties>
   
- <build>
+  <build>
     <plugins>
-      <!-- any other plugins -->
       <plugin>
         <artifactId>maven-assembly-plugin</artifactId>
         <executions>
@@ -26,9 +24,9 @@
           </execution>
         </executions>
         <configuration>
-        	<archive>
+          <archive>
             <manifest>
-                <mainClass>fun.seabird.app.MediaSorter</mainClass>
+              <mainClass>fun.seabird.app.MediaSorter</mainClass>
             </manifest>
           </archive>
           <descriptorRefs>
@@ -40,84 +38,74 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
-        <version>3.14.0</version>
+        <version>3.15.0</version>
         <configuration>
-          <release>24</release>
+          <release>${java.version}</release>
         </configuration>
-      </plugin>      
-      
+      </plugin>
     </plugins>
-  </build>	
-	
-	
+  </build>
+  
   <dependencies>
-	
-	<!-- https://mvnrepository.com/artifact/com.google.guava/guava -->
-	<dependency>
-	    <groupId>com.google.guava</groupId>
-	    <artifactId>guava</artifactId>
-	    <version>33.5.0-jre</version>
-	</dependency>
+    <dependency>
+      <groupId>com.google.guava</groupId>
+      <artifactId>guava</artifactId>
+      <version>33.5.0-jre</version>
+    </dependency>
 
-	<dependency>
-	    <groupId>com.drewnoakes</groupId>
-	    <artifactId>metadata-extractor</artifactId>
-	    <version>2.19.0</version>
-	</dependency>
+    <dependency>
+      <groupId>com.drewnoakes</groupId>
+      <artifactId>metadata-extractor</artifactId>
+      <version>2.19.0</version>
+    </dependency>
 
-	<dependency>
-	    <groupId>org.apache.commons</groupId>
-	    <artifactId>commons-lang3</artifactId>
-	    <version>3.19.0</version>
-	</dependency>
-	
-	<dependency>
-	  <groupId>org.apache.commons</groupId>
-	  <artifactId>commons-imaging</artifactId>
-	  <version>1.0.0-alpha6</version>
-	</dependency>
-	
-	<dependency>
-	    <groupId>org.projectlombok</groupId>
-	    <artifactId>lombok</artifactId>
-	    <version>1.18.42</version>
-	</dependency>
+    <dependency>
+      <groupId>org.apache.commons</groupId>
+      <artifactId>commons-lang3</artifactId>
+      <version>3.20.0</version>
+    </dependency>
+    
+    <dependency>
+      <groupId>org.apache.commons</groupId>
+      <artifactId>commons-imaging</artifactId>
+      <version>1.0.0-alpha6</version>
+    </dependency>
+    
+    <dependency>
+      <groupId>org.projectlombok</groupId>
+      <artifactId>lombok</artifactId>
+      <version>1.18.42</version>
+    </dependency>
 
-<dependency>
-    <groupId>org.openjfx</groupId>
-    <artifactId>javafx-base</artifactId>
-    <version>${javafx.version}</version>
-</dependency>
+    <dependency>
+      <groupId>org.openjfx</groupId>
+      <artifactId>javafx-base</artifactId>
+      <version>${javafx.version}</version>
+    </dependency>
 
-<dependency>
-    <groupId>org.openjfx</groupId>
-    <artifactId>javafx-controls</artifactId>
-    <version>${javafx.version}</version>
-</dependency>
+    <dependency>
+      <groupId>org.openjfx</groupId>
+      <artifactId>javafx-controls</artifactId>
+      <version>${javafx.version}</version>
+    </dependency>
 
-<dependency>
-    <groupId>org.slf4j</groupId>
-    <artifactId>slf4j-api</artifactId>
-    <version>2.0.17</version>
-</dependency>
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-api</artifactId>
+      <version>2.0.17</version>
+    </dependency>
 
-<dependency>
-    <groupId>ch.qos.logback</groupId>
-    <artifactId>logback-core</artifactId>
-    <version>1.5.21</version>
-</dependency>
+    <dependency>
+      <groupId>ch.qos.logback</groupId>
+      <artifactId>logback-classic</artifactId>
+      <version>1.5.27</version>
+    </dependency>
 
-<dependency>
-    <groupId>ch.qos.logback</groupId>
-    <artifactId>logback-classic</artifactId>
-    <version>1.5.21</version>
-</dependency>
-
-  	<dependency>
-  		<groupId>fun.seabird</groupId>
-  		<artifactId>ebird-csv-parser</artifactId>
-  		<version>0.0.6</version>
-  	</dependency>
-  </dependencies>    
+    <dependency>
+      <groupId>fun.seabird</groupId>
+      <artifactId>ebird-csv-parser</artifactId>
+      <version>0.0.6</version>
+    </dependency>
+  </dependencies>
   
 </project>
