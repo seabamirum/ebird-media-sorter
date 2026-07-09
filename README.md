@@ -52,7 +52,11 @@ A desktop application for birders who want to efficiently organize and upload th
 
 ### Linux (Ubuntu/Debian)
 
-1. Separate JRE installation is not required as it's included in the /bin directory of the tar.gz executable under [Releases page](../../releases)
+1. **Download and install Liberica JRE Full:**
+   - Go to https://bell-sw.com/pages/downloads/#jdk-25-lts
+   - Choose distribution, and select "Full JRE", open downloaded file
+   - Follow any additional prompts to complete installation
+   - Open Terminal and verify with `java -version`
 
 ## Step 3: Download the eBird Media Sorter
 
@@ -79,7 +83,10 @@ A desktop application for birders who want to efficiently organize and upload th
 
 ### Linux
 
-1. Extract the downloaded tar.gz file and run the eBird Media Sorter executable in the bin directory
+1. Open Terminal
+2. Navigate to your Downloads folder by typing: `cd ~/Downloads` and pressing Enter
+3. Run the program by typing: `java -jar ebird-media-sorter-[version].jar` (replace `[version]` with the actual version number)
+4. Press Enter
 
 ---
 
