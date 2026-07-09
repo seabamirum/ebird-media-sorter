@@ -46,9 +46,11 @@ import fun.seabird.provider.FileModifiedCreationDateProvider;
 import fun.seabird.provider.FileNameCreationDateProvider;
 import fun.seabird.util.MediaSortUtils;
 import javafx.concurrent.Task;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
+@RequiredArgsConstructor
 public class MediaSortTask extends Task<Path> {
 		
 	private static final DateTimeFormatter imageDtf = DateTimeFormatter.ofPattern("yyyy:MM:dd HH:mm:ss");
@@ -76,19 +78,13 @@ public class MediaSortTask extends Task<Path> {
 	    }
 	}
 	
-	private final MediaSortCmd msc;
-	
-	private transient Process process;	
-
-	public MediaSortTask(MediaSortCmd msc) {
-		this.msc = msc;
-	}
+	private final MediaSortCmd msc;	
 
 	/**
 	 * Parses a CSV record and updates the checklist statistics map and range map
 	 * with relevant information.
 	 * 
-	 * @param record The CSV record to be parsed.
+	 * @param row The CSV record to be parsed.
 	 */
 	private void parseCsvLine(EbirdCsvRow row) 
 	{
@@ -177,25 +173,39 @@ public class MediaSortTask extends Task<Path> {
 		return Files.move(from, to);
 	}		
 
-	private static boolean runFfmpeg(String[] command, String operation) 
-	{
-	    ProcessBuilder pb = new ProcessBuilder(command);
-	    pb.redirectError(ProcessBuilder.Redirect.DISCARD);
-	    pb.redirectOutput(ProcessBuilder.Redirect.DISCARD);
+	private static boolean runFfmpeg(String[] command, String operation) {
 	    Process process = null;
 	    try {
+	        ProcessBuilder pb = new ProcessBuilder(command);
+	        
+	        pb.redirectErrorStream(true);
+	        pb.redirectOutput(ProcessBuilder.Redirect.PIPE);
+
 	        process = pb.start();
-	        int res = process.waitFor();
-	        if (res != 0) {
-	            log.warn("FFmpeg {} failed with exit code {}", operation, res);
+
+	        String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+
+	        int exitCode = process.waitFor();
+
+	        if (exitCode != 0) {
+	            log.warn("FFmpeg {} failed with exit code {}\nOutput: {}", 
+	                     operation, exitCode, output.trim());
 	            return false;
 	        }
+
 	        return true;
-	    } catch (InterruptedException | IOException e) {
-	        log.error("Cannot perform FFmpeg {}", operation, e);
+
+	    } catch (InterruptedException e) {
+	        Thread.currentThread().interrupt();
+	        log.info("FFmpeg {} interrupted", operation);
+	        return false;
+	    } catch (IOException e) {
+	        log.error("Failed to execute FFmpeg {}", operation, e);
 	        return false;
 	    } finally {
-	        if (process != null) process.destroy();
+	        if (process != null && process.isAlive()) {
+	            process.destroyForcibly();
+	        }
 	    }
 	}
 		
@@ -290,7 +300,7 @@ public class MediaSortTask extends Task<Path> {
 	 * including the directory itself if empty after cleaning subdirectories.
 	 * Uses depth-first post-order traversal to ensure subdirectories are processed first.
 	 *
-	 * @param dir the starting directory to clean
+	 * @param rootDir the starting directory to clean
 	 * @throws IOException if an I/O error occurs
 	 */
 	private static void cleanEmptyDirectories(Path rootDir) throws IOException {
@@ -329,33 +339,69 @@ public class MediaSortTask extends Task<Path> {
 	    Path output = file.getParent().resolve(info.base() + ".mp3");
 	    return Files.exists(output) ? null : output;
 	}
+	
+	private void handleVideoTranscoding(Path file, FileInfo info) throws IOException {
+	    Path converted = shouldConvertVideo(file, info);
+	    if (converted == null) return;
+
+	    log.info("{} transcoding to MP4 with ffmpeg...", info.name());
+
+	    String[] cmd = {
+	        "ffmpeg", "-threads", "1", "-i", file.toString(),
+	        "-map_metadata", "0",
+	        "-c:v", "libx264",
+	        "-threads", "2",
+	        "-crf", "22",
+	        "-preset", "medium",
+	        "-c:a", "copy",
+	        converted.toString()
+	    };
+
+	    if (runFfmpeg(cmd, "video transcoding")) {
+	        log.info("Saved converted video to {}", converted.getFileName());
+	    }
+	}
+
+	private void handleAudioExtraction(Path file, FileInfo info) {
+	    Path extracted = shouldExtractAudio(file, info);
+	    if (extracted == null) return;
+
+	    log.info("Extracting audio from {} to MP3 with ffmpeg...", info.name());
+
+	    String[] cmd = {
+	        "ffmpeg", "-i", file.toString(),
+	        "-vn", "-c:a", "mp3", "-b:a", "192k",
+	        "-map_metadata", "0",
+	        extracted.toString()
+	    };
+
+	    if (runFfmpeg(cmd, "audio extraction")) {
+	        log.info("Saved extracted audio to {}", extracted.getFileName());
+	    }
+	}
+
+	private void handleExifDateCorrection(Path file, FileInfo info) throws IOException {
+	    if (msc.getHrsOffset() == 0L) return;
+	    if (!isJpeg(info)) return;
+
+	    String newDt = findCreationDt(file, msc.getHrsOffset()).format(imageDtf);
+
+	    if (changeDateTimeOrig(file, newDt)) {
+	        log.info("Changed EXIF date of {} to {}", file.getFileName(), newDt);
+	    }
+	}
+
+	private static boolean isJpeg(FileInfo info) {
+	    String ext = info.ext().toLowerCase();
+	    return "jpg".equals(ext) || "jpeg".equals(ext);
+	}
 
 	private void afterMove(Path file) throws IOException {
 	    FileInfo info = new FileInfo(file);
 
-	    Path converted = shouldConvertVideo(file, info);
-	    if (converted != null) {
-	        log.info("{} transcoding to MP4 with ffmpeg...", info.name());
-	        if (runFfmpeg(new String[]{"ffmpeg", "-threads", "1", "-i", file.toString(), "-map_metadata", "0", "-c:v", "libx264", "-threads", "2", "-crf", "22", "-preset", "medium", "-c:a", "copy", converted.toString()}, "video transcoding")) {
-	            log.info("Saved converted video to {}", converted.getFileName());
-	        }
-	    }
-
-	    Path extracted = shouldExtractAudio(file, info);
-	    if (extracted != null) {
-	        log.info("Extracting audio from {} to MP3 with ffmpeg...", info.name());
-	        if (runFfmpeg(new String[]{"ffmpeg", "-i", file.toString(), "-vn", "-c:a", "mp3", "-b:a", "192k","-map_metadata","0", extracted.toString()}, "audio extraction")) {
-	            log.info("Saved extracted audio to {}", extracted.getFileName());
-	        }
-	    }
-
-	    if (msc.getHrsOffset() != 0L && ("jpg".equals(info.ext()) || "jpeg".equals(info.ext())))
-	    {
-	        String newDt = findCreationDt(file, msc.getHrsOffset()).format(imageDtf);
-	        if (changeDateTimeOrig(file, newDt)) {
-	            log.info("Changed EXIF date of {} to {}", file.getFileName(), newDt);
-	        }
-	    }
+	    handleVideoTranscoding(file, info);
+	    handleAudioExtraction(file, info);
+	    handleExifDateCorrection(file, info);
 	}
 	
 	@SuppressWarnings("resource")
@@ -381,10 +427,97 @@ public class MediaSortTask extends Task<Path> {
 	    }
 	    
 	    //So we don't double the counts on a second run
-	    checklistStatsMap.values().stream().forEach(ss -> ss.reset());	 
+	    checklistStatsMap.values().forEach(SubStats::reset);	 
 	    subIds.clear();
 	    
 	    return file;
+	}
+	
+	private void parseCsvIfNeeded() throws IOException {
+	    if (msc.getCsvFile() != null && msc.isReParseCsv()) {
+	        rangeMap.clear();
+	        EbirdCsvParser.parseCsv(msc.getCsvFile(), this::parseCsvLine, PreSort.NONE);
+	        msc.setReParseCsv(false);
+	    }
+	}
+
+	private static Path setupOutputDirectory(Path mediaPath) {
+	    String outputDirName = MediaSortUtils.OUTPUT_FOLDER_NAME + "_" + Instant.now().toEpochMilli();
+	    return mediaPath.resolve(outputDirName);
+	}
+
+	private static List<Path> collectEligibleFiles(Path mediaPath) throws IOException {
+	    log.info("Analyzing files...");
+	    List<Path> eligibleFiles = new ArrayList<>();
+
+	    try (Stream<Path> stream = Files.walk(mediaPath)) {
+	        stream.filter(MediaSortTask::isEligibleMediaFile)
+	              .sorted(Comparator.comparing(Path::getFileName))
+	              .gather(Gatherers.windowFixed(LOGGING_WINDOW_SIZE))
+	              .peek(window -> log.info("Added files to processing queue ({} total)...", 
+	                                       eligibleFiles.size() + window.size()))
+	              .forEach(eligibleFiles::addAll);
+	    }
+	    return eligibleFiles;
+	}
+
+	private List<Path> processFiles(List<Path> eligibleFiles, Path outputDir, 
+	                                long hrsOffset, boolean sepYearDir) throws IOException {
+	    int numFiles = eligibleFiles.size();
+	    log.info("Processing {} files in {} and subdirectories...", numFiles, msc.getMediaPath()); // note: mediaPath needs to be in scope or passed
+
+	    List<Path> movedFiles = new ArrayList<>(numFiles);
+	    int j = 1;
+
+	    for (Path f : eligibleFiles) {
+	        Path movedFile = checkMetadataAndMove(f, outputDir, hrsOffset, sepYearDir, msc.getFolderGroup());
+	        movedFiles.add(movedFile);
+
+	        final double progPer = j++ / ((double) numFiles);
+	        updateProgress(progPer, 1.0);
+	    }
+	    return movedFiles;
+	}
+
+	private void finalizeProcessing(List<Path> movedFiles, long hrsOffset) throws IOException {
+	    if (hrsOffset != 0L) {
+	        log.info("Adjusting EXIF data (may take a while)...");
+	    } else {
+	        log.info("Finishing up...");
+	    }
+
+	    for (Path f : movedFiles) {
+	        afterMove(f);
+	    }
+	}
+
+	private void handleOutputDirectoryStructure(Path mediaPath, Path outputDir) throws IOException {
+	    if (msc.isCreateSubDir()) {
+	        Path finalOutputDir = mediaPath.resolve(MediaSortUtils.OUTPUT_FOLDER_NAME);
+	        if (Files.exists(finalOutputDir)) {
+	            log.error("Directory {} already exists! Check {} for results.", finalOutputDir, outputDir);
+	        } else {
+	            Files.move(outputDir, finalOutputDir, StandardCopyOption.ATOMIC_MOVE);
+	        }
+	    } else {
+	        moveContentsAndDelete(outputDir, mediaPath);
+	    }
+	}
+
+	private static void moveContentsAndDelete(Path outputDir, Path mediaPath) throws IOException {
+	    List<Path> dirToMove = new ArrayList<>();
+	    try (Stream<Path> stream = Files.walk(outputDir, 1)) {
+	        stream.filter(path -> !path.equals(outputDir))
+	              .forEach(dirToMove::add);
+	    }
+
+	    for (Path directory : dirToMove) {
+	        if (!Files.exists(directory)) continue;
+	        Path newPath = mediaPath.resolve(outputDir.relativize(directory));
+	        Files.move(directory, newPath, StandardCopyOption.ATOMIC_MOVE);
+	    }
+
+	    Files.delete(outputDir);
 	}
 
 	/**
@@ -397,99 +530,34 @@ public class MediaSortTask extends Task<Path> {
 	 */
 	@Override
 	protected Path call() throws Exception {
-		if (msc.getCsvFile() != null && msc.isReParseCsv())
-		{
-			rangeMap.clear();				
-			EbirdCsvParser.parseCsv(msc.getCsvFile(),this::parseCsvLine,PreSort.NONE);
-			
-			msc.setReParseCsv(false);			
-		}
+	    parseCsvIfNeeded();
 
-		Path mediaPath = msc.getMediaPath();
+	    Path mediaPath = msc.getMediaPath();
+	    Path outputDir = setupOutputDirectory(mediaPath);
 
-		// make output directory inside the provided media folder
-		String outputDirName = MediaSortUtils.OUTPUT_FOLDER_NAME + "_" + Instant.now().toEpochMilli();
-		Path outputDir = mediaPath.resolve(outputDirName);
+	    long hrsOffset = msc.getHrsOffset();
+	    boolean sepYearDir = msc.isSepYear();
 
-		long hrsOffset = msc.getHrsOffset();
-		
-		log.info("Analyzing files...");
-		List<Path> eligibleFiles = new ArrayList<>();
-		try (Stream<Path> stream = Files.walk(mediaPath)) {		    
-		    stream.filter(MediaSortTask::isEligibleMediaFile)
-		    	.sorted(Comparator.comparing(Path::getFileName))
-		        .gather(Gatherers.windowFixed(LOGGING_WINDOW_SIZE))
-		        .peek(window -> log.info("Added files to processing queue ({} total)...",(eligibleFiles.size() + window.size())))
-		        .forEach(eligibleFiles::addAll);
-		}
+	    List<Path> eligibleFiles = collectEligibleFiles(mediaPath);
+	    if (eligibleFiles.isEmpty()) {
+	        log.info("No eligible media files found.");
+	        updateProgress(1.0, 1.0);
+	        return null;
+	    }
 
-		if (eligibleFiles.isEmpty()) {
-			log.info("No eligible media files found.");
-			updateProgress(1.0, 1.0);
-			return null;
-		}
+	    List<Path> movedFiles = processFiles(eligibleFiles, outputDir, hrsOffset, sepYearDir);
 
-		boolean sepYearDir = msc.isSepYear();
-		int numFiles = eligibleFiles.size();
-		int j = 1;
-		log.info("Processing {} files in {} and subdirectories...",numFiles,mediaPath);
-		List<Path> movedFiles = new ArrayList<>(numFiles);
-		for (Path f : eligibleFiles) {
-			
-			Path movedFile = checkMetadataAndMove(f, outputDir, hrsOffset, sepYearDir, msc.getFolderGroup());
-			
-			movedFiles.add(movedFile);
-			
-			final double progPer = j++ / ((double) numFiles);
-			updateProgress(progPer, 1.0);
-		}
-		
-		if (hrsOffset != 0l)
-			log.info("Adjusting EXIF data (may take a while)...");
-		else		
-			log.info("Finishing up...");
-		
-		for (Path f : movedFiles)
-			afterMove(f);
+	    finalizeProcessing(movedFiles, hrsOffset);
 
-		if (msc.isCreateSubDir()) {
-			Path finalOutputDir = mediaPath.resolve(MediaSortUtils.OUTPUT_FOLDER_NAME);
-			if (Files.exists(finalOutputDir))
-				log.error("Directory {} already exists! Check {} for results.",finalOutputDir,outputDir);
-			else
-				Files.move(outputDir, finalOutputDir, StandardCopyOption.ATOMIC_MOVE);
-		} else {
-			List<Path> dirToMove = new ArrayList<>();
-			   try (Stream<Path> stream = Files.walk(outputDir, 1)) {
-			        stream.filter(path -> !path.equals(outputDir))
-			              .forEach(dirToMove::add);
-			    }
+	    handleOutputDirectoryStructure(mediaPath, outputDir);
 
-			for (Path directory : dirToMove) {
-				if (!Files.exists(directory))
-					continue;
+	    Path resultsFile = writeResults(mediaPath);
+	    cleanEmptyDirectories(mediaPath);
 
-				Path newPath = mediaPath.resolve(outputDir.relativize(directory));
-				Files.move(directory, newPath, StandardCopyOption.ATOMIC_MOVE);
-			}
+	    updateProgress(1.0, 1.0);
+	    log.info("ALL DONE! :-)");
 
-			Files.delete(outputDir);
-		}		
-		
-		Path resultsFile = writeResults(mediaPath);
-        
-        log.info("Deleting empty directories...");
-        cleanEmptyDirectories(mediaPath);
-        
-		updateProgress(1.0, 1.0);
-
-		log.info("ALL DONE! :-)");
-		return resultsFile;
-
-	}
-
-	public Process getProcess() {
-		return process;
-	}
+	    return resultsFile;
+	}	
 
 }
