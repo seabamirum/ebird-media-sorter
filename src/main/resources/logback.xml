@@ -1,8 +1,0 @@
-<configuration>
-  <appender name="textAreaAppender" class="fun.seabird.util.TextAreaAppender">
-    <!-- additional configuration options -->
-  </appender>
-  <root level="info">
-    <appender-ref ref="textAreaAppender"/>
-  </root>
-</configuration>
