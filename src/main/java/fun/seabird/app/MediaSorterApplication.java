@@ -83,6 +83,8 @@ public class MediaSorterApplication extends Application
      * without holding a reference to the full application instance.
      */
     public static final TextArea OUTPUT_LOG = new TextArea();
+    
+    private MediaSortTask task;
 
     /**
      * Launches a {@link MediaSortTask} in a background daemon thread and wires
@@ -119,7 +121,7 @@ public class MediaSorterApplication extends Application
      * @param msr    the result holder whose index path is set once the task
      *               completes successfully
      */
-    private static void runMediaSortTask(Button runBut, Button resBtn, ProgressBar pb,
+    private void runMediaSortTask(Button runBut, Button resBtn, ProgressBar pb,
             ScrollPane scroll, MediaSortCmd msc, MediaSortResult msr)
     {
         runBut.setDisable(true);
@@ -130,7 +132,7 @@ public class MediaSorterApplication extends Application
 
         OUTPUT_LOG.clear();
 
-        MediaSortTask task = new MediaSortTask(msc);
+        task = new MediaSortTask(msc);
 
         pb.progressProperty().bind(task.progressProperty());
 
@@ -147,7 +149,13 @@ public class MediaSorterApplication extends Application
                 resBtn.setDisable(false);
                 resBtn.setVisible(true);
             }
-        });       
+        });    
+        
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            if (task.currentProcess() != null) {
+                task.destroyCurrentProcess();
+            }
+        }));
     }
 
     /**
@@ -341,5 +349,13 @@ public class MediaSorterApplication extends Application
         s.setScene(scene);
         s.setResizable(true);
         s.show();
+    }    
+    
+    @Override
+    public void stop() throws Exception {
+        if (task != null) {
+            task.destroyCurrentProcess();
+        }
+        super.stop();
     }
 }

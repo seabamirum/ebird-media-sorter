@@ -79,6 +79,12 @@ public class MediaSortTask extends Task<Path> {
 	}
 	
 	private final MediaSortCmd msc;	
+	
+	private transient Process process;	
+	public Process currentProcess()
+	{
+		return process;
+	}
 
 	/**
 	 * Parses a CSV record and updates the checklist statistics map and range map
@@ -171,24 +177,41 @@ public class MediaSortTask extends Task<Path> {
 			return Files.createSymbolicLink(to, from);
 		
 		return Files.move(from, to);
-	}		
+	}	
+	
+	public void destroyCurrentProcess() {
+	    if (process == null || !process.isAlive()) {
+	        return;
+	    }
 
-	private static boolean runFfmpeg(String[] command, String operation) {
-	    Process process = null;
+	    ProcessHandle handle = process.toHandle();
+
+	    // Try graceful quit first (ffmpeg understands 'q')
+	    try {
+	        OutputStream os = process.getOutputStream();
+	        os.write("q\n".getBytes(StandardCharsets.UTF_8));
+	        os.flush();
+	        Thread.sleep(400);
+	    } catch (Exception ignored) {}
+
+	    // Kill all child processes + main process
+	    handle.descendants().forEach(ph -> ph.destroyForcibly());
+	    handle.destroyForcibly();
+	}
+
+	private boolean runFfmpeg(String[] command, String operation) {
 	    try {
 	        ProcessBuilder pb = new ProcessBuilder(command);
-	        
 	        pb.redirectErrorStream(true);
 	        pb.redirectOutput(ProcessBuilder.Redirect.PIPE);
 
-	        process = pb.start();
+	        process = pb.start();   // assign to your instance field
 
 	        String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-
 	        int exitCode = process.waitFor();
 
 	        if (exitCode != 0) {
-	            log.warn("FFmpeg {} failed with exit code {}\nOutput: {}", 
+	            log.warn("FFmpeg {} failed with exit code {}\nOutput: {}",
 	                     operation, exitCode, output.trim());
 	            return false;
 	        }
@@ -202,11 +225,7 @@ public class MediaSortTask extends Task<Path> {
 	    } catch (IOException e) {
 	        log.error("Failed to execute FFmpeg {}", operation, e);
 	        return false;
-	    } finally {
-	        if (process != null && process.isAlive()) {
-	            process.destroyForcibly();
-	        }
-	    }
+	    } 
 	}
 		
 	/**
