@@ -59,7 +59,7 @@ import javafx.stage.Stage;
  * clicking it opens the generated index file using the platform's default
  * application via {@link Desktop#open(File)}.
  *
- * <p>A JVM shutdown hook is registered to cleanly terminate any external
+ * <p>A JVM shutdown hook is registered to cleanly terminate any ffmpeg
  * process spawned by the {@link MediaSortTask} if the application is closed
  * while sorting is in progress.
  */
