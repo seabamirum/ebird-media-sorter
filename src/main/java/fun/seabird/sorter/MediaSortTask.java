@@ -179,6 +179,12 @@ public class MediaSortTask extends Task<Path> {
 		return Files.move(from, to);
 	}	
 	
+	/**
+	 * Gracefully shuts down the current FFmpeg {@link Process} if it is running.
+	 * 
+	 * <p>Sends a quit command to FFmpeg, then forcefully terminates the process
+	 * tree using {@link ProcessHandle} as a fallback.
+	 */
 	public void destroyCurrentProcess() {
 	    if (process == null || !process.isAlive()) {
 	        return;
@@ -199,13 +205,28 @@ public class MediaSortTask extends Task<Path> {
 	    handle.destroyForcibly();
 	}
 
+	/**
+	 * Executes an FFmpeg command and waits for its completion.
+	 * 
+	 * <p>This method starts the FFmpeg process using the provided command,
+	 * captures its combined output (stdout + stderr), and waits for it to finish.
+	 * It logs warnings for non-zero exit codes and errors for execution failures.
+	 * The {@code process} field is updated with the newly started process.</p>
+	 * 
+	 * @param command   the FFmpeg command and its arguments as a string array
+	 * @param operation a descriptive name of the operation (used in log messages)
+	 * @return {@code true} if the process completed successfully (exit code 0),
+	 *         {@code false} otherwise (failure, interruption, or IOException)
+	 * 
+	 * @throws nothing explicitly (all exceptions are caught and logged)
+	 */
 	private boolean runFfmpeg(String[] command, String operation) {
 	    try {
 	        ProcessBuilder pb = new ProcessBuilder(command);
 	        pb.redirectErrorStream(true);
 	        pb.redirectOutput(ProcessBuilder.Redirect.PIPE);
 
-	        process = pb.start();   // assign to your instance field
+	        process = pb.start();
 
 	        String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
 	        int exitCode = process.waitFor();
