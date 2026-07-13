@@ -24,18 +24,36 @@ public final class MediaSortUtils
 	public static final Set<String> imageExtensions = Set.of("jpg", "jpeg", "png", "crx", "crw", "cr2", "cr3", "crm", "arw", "nef", "orf", "raf");
 	public static final Set<String> mediaExtensions = Stream.of(imageExtensions,audioExtensions,videoExtensions).flatMap(Set::stream).map(String::toLowerCase).collect(Collectors.toUnmodifiableSet());
 	
+	/**
+	 * Returns the filename without its extension.
+	 * 
+	 * @param fileName the name of the file
+	 * @return filename without extension, or the original string if no extension
+	 */
 	public static String getBaseName(String fileName) {
 	    int dotIndex = fileName.lastIndexOf('.');
 	    return (dotIndex == -1) ? fileName : fileName.substring(0, dotIndex);
 	}
-	
+
+	/**
+	 * Returns the file extension without the leading dot.
+	 * 
+	 * @param fileName the name of the file
+	 * @return the extension, or empty string if the file has no extension
+	 */
 	public static String getFileExtension(String fileName) {
-		int dotIndex = fileName.lastIndexOf('.');
-		return (dotIndex == -1) ? "" : fileName.substring(dotIndex + 1);
+	    int dotIndex = fileName.lastIndexOf('.');
+	    return (dotIndex == -1) ? "" : fileName.substring(dotIndex + 1);
 	}
-	
+
+	/**
+	 * Returns the file extension from a Path.
+	 * 
+	 * @param file the file path
+	 * @return the extension, or empty string if none
+	 */
 	public static String getFileExtension(Path file) {
-		return getFileExtension(file.getFileName().toString());
+	    return getFileExtension(file.getFileName().toString());
 	}
 	
 	/**

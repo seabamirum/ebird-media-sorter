@@ -8,6 +8,10 @@ import java.util.Date;
 
 public class FileModifiedCreationDateProvider implements CreationDateProvider 
 {
+	/** 
+	 * A constant representing January 1, 1900 at midnight.
+	 * Used as a fallback/default date for images with missing or invalid timestamps.
+	 */
 	final LocalDateTime nineteenHundred = parseTime("1900:01:01 00:00:00",imageDtf);	
 
 	@Override
