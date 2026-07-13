@@ -26,6 +26,4 @@ hs_err_pid*
 /.settings
 .project
 .classpath
-/doc/
 .factorypath
-pushdocs.sh
