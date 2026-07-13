@@ -1,4 +1,4 @@
-package fun.seabird.provider;
+package dev.seabird.app;
 
 import java.nio.file.Path;
 import java.time.LocalDateTime;
@@ -7,6 +7,9 @@ import java.time.format.DateTimeFormatter;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Strings;
 
+/**
+ * Provides the creation date of a file based on its EXIF creation time. 
+ */
 public class FileNameCreationDateProvider implements CreationDateProvider 
 {
 	private static final DateTimeFormatter recForgeDtf1 = DateTimeFormatter.ofPattern("yyyyMMdd_HHmm");

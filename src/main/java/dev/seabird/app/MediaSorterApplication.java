@@ -1,4 +1,4 @@
-package fun.seabird.app;
+package dev.seabird.app;
 
 import java.awt.Desktop;
 import java.io.File;
@@ -6,11 +6,6 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ResourceBundle;
 
-import fun.seabird.sorter.FolderGroup;
-import fun.seabird.sorter.MediaSortCmd;
-import fun.seabird.sorter.MediaSortResult;
-import fun.seabird.sorter.MediaSortTask;
-import fun.seabird.util.MediaSortUtils;
 import javafx.application.Application;
 import javafx.geometry.Insets;
 import javafx.scene.Scene;

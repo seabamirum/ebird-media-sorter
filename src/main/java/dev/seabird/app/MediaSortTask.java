@@ -1,4 +1,4 @@
-package fun.seabird.sorter;
+package dev.seabird.app;
 
 import java.io.BufferedOutputStream;
 import java.io.ByteArrayOutputStream;
@@ -40,15 +40,23 @@ import de.siegmar.fastcsv.writer.CsvWriter;
 import fun.seabird.EbirdCsvParser;
 import fun.seabird.EbirdCsvParser.PreSort;
 import fun.seabird.EbirdCsvRow;
-import fun.seabird.provider.CreationDateProvider;
-import fun.seabird.provider.ExifCreationDateProvider;
-import fun.seabird.provider.FileModifiedCreationDateProvider;
-import fun.seabird.provider.FileNameCreationDateProvider;
-import fun.seabird.util.MediaSortUtils;
 import javafx.concurrent.Task;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
+/**
+ * Background task responsible for sorting and organizing media files (photos and videos).
+ * 
+ * <p>This task performs the following operations:
+ * <ul>
+ *   <li>Analyzes media files and determines creation dates using multiple strategies (EXIF, filename, file modified time)</li>
+ *   <li>Organizes files into folders using eBird CSV data based on date and/or eBird checklist location</li>
+ *   <li>Optionally transcodes videos, extracts audio, and corrects EXIF timestamps</li>
+ *   <li>Generates a checklist index CSV with statistics</li>
+ * </ul>
+ * 
+ * <p>Runs off the JavaFX Application Thread and supports progress reporting.
+ */
 @Slf4j
 @RequiredArgsConstructor
 public class MediaSortTask extends Task<Path> {

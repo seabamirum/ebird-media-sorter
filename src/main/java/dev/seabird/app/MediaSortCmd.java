@@ -1,4 +1,4 @@
-package fun.seabird.sorter;
+package dev.seabird.app;
 
 import java.nio.file.Path;
 

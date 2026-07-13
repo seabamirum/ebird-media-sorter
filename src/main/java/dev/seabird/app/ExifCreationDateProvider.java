@@ -1,4 +1,4 @@
-package fun.seabird.provider;
+package dev.seabird.app;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -19,8 +19,6 @@ import com.drew.metadata.exif.ExifDirectoryBase;
 import com.drew.metadata.exif.ExifSubIFDDirectory;
 import com.drew.metadata.mov.media.QuickTimeMediaDirectory;
 import com.drew.metadata.mp4.Mp4Directory;
-
-import fun.seabird.util.MediaSortUtils;
 
 /**
  * A {@link CreationDateProvider} that extracts creation timestamps from media

@@ -1,4 +1,4 @@
-package fun.seabird.app;
+package dev.seabird.app;
 
 import javafx.application.Application;
 

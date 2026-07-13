@@ -1,4 +1,4 @@
-package fun.seabird.util;
+package dev.seabird.app;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -11,6 +11,11 @@ import org.apache.commons.imaging.formats.jpeg.JpegImageMetadata;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * Utility class containing helper methods and constants for media sorting operations.
+ * 
+ * <p>Includes file name utilities, media file extension sets, and JPEG metadata extraction.
+ */
 public final class MediaSortUtils 
 {
 	private static final Logger log = LoggerFactory.getLogger(MediaSortUtils.class);
@@ -57,8 +62,11 @@ public final class MediaSortUtils
 	}
 	
 	/**
-	 * @param jpegImageFile
-	 * @return NULL if not an image, the metadata otherwise
+	 * Extracts JPEG image metadata from raw bytes.
+	 * 
+	 * @param jpegImageBytes the raw bytes of a JPEG file
+	 * @return the {@link JpegImageMetadata} if successful and the file is a valid JPEG,
+	 *         or {@code null} if it's not a JPEG or an error occurs
 	 */
 	public static JpegImageMetadata jpegImageMetadata(byte[] jpegImageFile) {
 	    try {

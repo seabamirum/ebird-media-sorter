@@ -1,4 +1,4 @@
-package fun.seabird.provider;
+package dev.seabird.app;
 
 import java.io.IOException;
 import java.nio.file.Files;

@@ -1,1 +1,1 @@
-packageSearchIndex = [{"l":"All Packages","u":"allpackages-index.html","k":"18"},{"l":"fun.seabird.app"},{"l":"fun.seabird.provider"},{"l":"fun.seabird.sorter"},{"l":"fun.seabird.util"}];updateSearchResults();
+packageSearchIndex = [{"l":"All Packages","u":"allpackages-index.html","k":"18"},{"l":"dev.seabird.app"}];updateSearchResults();
