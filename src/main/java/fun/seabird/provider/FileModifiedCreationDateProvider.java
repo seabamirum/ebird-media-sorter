@@ -6,6 +6,13 @@ import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.util.Date;
 
+/**
+ * Provides the creation date of a file based on its last modified time.
+ * 
+ * <p>This implementation uses the file system's last modified timestamp as
+ * the creation date. If the timestamp is invalid (epoch 0), it falls back
+ * to January 1, 1900.
+ */
 public class FileModifiedCreationDateProvider implements CreationDateProvider 
 {
 	/** 
