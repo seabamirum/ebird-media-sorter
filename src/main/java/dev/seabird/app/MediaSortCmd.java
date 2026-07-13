@@ -6,6 +6,9 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+/**
+ * Configuration object that holds all parameters for a media sorting operation.
+ */
 @NoArgsConstructor
 @Getter
 @Setter

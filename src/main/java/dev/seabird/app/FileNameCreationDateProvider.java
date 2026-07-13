@@ -8,7 +8,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Strings;
 
 /**
- * Provides the creation date of a file based on its EXIF creation time. 
+ * Provides the creation date of a file based on date strings within the filename
  */
 public class FileNameCreationDateProvider implements CreationDateProvider 
 {
